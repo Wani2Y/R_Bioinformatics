@@ -1,0 +1,2254 @@
+# title: "**Generating oROM plot for palaeognath animations from Maya**"
+# project for: "oROM estimationg using Maya"
+# author: "Wani2Y"
+# first created: "28/02/2023"
+# last modified: "17/03/2023"
+
+# load the necessary libraries
+library(tidyverse)
+library(data.table)
+library(ggplot2)
+library(ggpubr)
+library(gridExtra)
+library(stringi)
+
+## read in the oROM from csv files
+# read the filenames of all csv files without extensions
+filenames <- tools::file_path_sans_ext(
+  list.files(path ="./palaeognath/",
+             pattern ="*.csv"))  
+
+# read in all csv files from subfolder
+big_table <- list()
+for(i in filenames){
+  filepath <- file.path("./palaeognath/",paste(i,".csv",sep =""))
+  big_table[[i]] <- read.csv(filepath)
+}
+
+
+# segregate tables from big_table
+# get plot data for IV
+IV_jnts <- list()
+for(i in 1: length(big_table)){
+  if (str_detect(names(big_table[i]), "_vrs")){
+    if(str_detect(names(big_table[i]), "AB")){
+      IV_jnts = append(IV_jnts, big_table[i])
+    }
+  }
+}
+
+for (j in 1:length(IV_jnts)){
+  IV_jnts[[j]] = IV_jnts[[j]][c(1, (5:11))]
+}
+
+# get plot data for max oROM
+max_oROM <- list()
+for(i in 1: length(big_table)){
+  if (str_detect(names(big_table[i]), "_max_")){
+    max_oROM = append(max_oROM, big_table[i])
+  }
+}
+
+# get VRS
+max_vrs <- list()
+for(i in 1: length(max_oROM)){
+  if (str_detect(names(max_oROM[i]), "_vrs")){
+    max_vrs = append(max_vrs, max_oROM[i])
+    }
+}
+
+for (j in 1:length(max_vrs)){
+  max_vrs[[j]] = max_vrs[[j]][-c(2:11)]
+}
+
+# get RS
+max_rs <- list()
+for(i in 1: length(max_oROM)){
+  if (str_detect(names(max_oROM[i]), "_rs")){
+    max_rs = append(max_rs, max_oROM[i])
+  }
+}
+
+for (j in 1:length(max_rs)){
+  max_rs[[j]] = max_rs[[j]][-c(2:4)]
+}
+
+# get R
+max_r <- list()
+for(i in seq(from = 1, to =  length(max_oROM), by = 3)){
+    max_r = append(max_r, max_oROM[i])
+}
+
+# get plot data for realistic oROM
+real_oROM <- list()
+for(i in 1: length(big_table)){
+  if (str_detect(names(big_table[i]), "_real_")){
+    real_oROM = append(real_oROM, big_table[i])
+  }
+}
+
+# get VRS
+real_vrs <- list()
+for(i in 1: length(real_oROM)){
+  if (str_detect(names(real_oROM[i]), "_vrs")){
+    real_vrs = append(real_vrs, real_oROM[i])
+  }
+}
+
+for (j in 1:length(real_vrs)){
+  real_vrs[[j]] = real_vrs[[j]][-c(2:11)]
+}
+
+# get RS
+real_rs <- list()
+for(i in 1: length(real_oROM)){
+  if (str_detect(names(real_oROM[i]), "_rs")){
+    real_rs = append(real_rs, real_oROM[i])
+  }
+}
+
+for (j in 1:length(real_rs)){
+  real_rs[[j]] = real_rs[[j]][-c(2:4)]
+}
+
+
+# get R
+real_r <- list()
+for(i in seq(from = 1, to =  length(real_oROM), by = 3)){
+    real_r = append(real_r, real_oROM[i])
+}
+
+# create a vector of names
+IV_names <- c(
+  "IV_19", "IV_20", "IV_21", "IV_22", "IV_23", "IV_24", "IV_25"
+)
+
+Rib_names <- c(
+  "C19", "C20", "C21", "C22", "C23", "C24", "C25",
+  "IR21", "IR22", "IR23", "IR24", "IR25"
+)
+
+vrs_list <- list(rep("_vrs", 12))
+rs_list <- list(rep("_rs", 12))
+r_list <- list(rep("_r", 12))
+seg_names <- list(vrs_list,
+                  rs_list,
+                  r_list)
+
+
+# generate total bar plots to compare oROMs
+# IV joints
+IV_bar_data <- data.frame(
+  jnt = c("IV_19", "IV_20", "IV_21", "IV_22", "IV_23", "IV_24", "IV_25"),
+  oROM_max_x = c(IV_jnts[[3]][which.max(abs(IV_jnts$AB_um_max_vrs$flexion_extension_P19)), which(colnames(IV_jnts[[3]]) == "flexion_extension_P19")],
+                 IV_jnts[[3]][which.max(abs(IV_jnts$AB_um_max_vrs$flexion_extension_P20)), which(colnames(IV_jnts[[3]]) == "flexion_extension_P20")],
+                 IV_jnts[[3]][which.max(abs(IV_jnts$AB_um_max_vrs$flexion_extension_P21)), which(colnames(IV_jnts[[3]]) == "flexion_extension_P21")],
+                 IV_jnts[[3]][which.max(abs(IV_jnts$AB_um_max_vrs$flexion_extension_P22)), which(colnames(IV_jnts[[3]]) == "flexion_extension_P22")],
+                 IV_jnts[[3]][which.max(abs(IV_jnts$AB_um_max_vrs$flexion_extension_P23)), which(colnames(IV_jnts[[3]]) == "flexion_extension_P23")],
+                 IV_jnts[[3]][which.max(abs(IV_jnts$AB_um_max_vrs$flexion_extension_P24)), which(colnames(IV_jnts[[3]]) == "flexion_extension_P24")],
+                 IV_jnts[[3]][which.max(abs(IV_jnts$AB_um_max_vrs$flexion_extension_P25)), which(colnames(IV_jnts[[3]]) == "flexion_extension_P25")]),
+  
+  oROM_real_x = c(IV_jnts[[4]][which.max(abs(IV_jnts$AB_um_real_vrs$flexion_extension_P19)), which(colnames(IV_jnts[[4]]) == "flexion_extension_P19")],
+                IV_jnts[[4]][which.max(abs(IV_jnts$AB_um_real_vrs$flexion_extension_P20)), which(colnames(IV_jnts[[4]]) == "flexion_extension_P20")],
+                IV_jnts[[4]][which.max(abs(IV_jnts$AB_um_real_vrs$flexion_extension_P21)), which(colnames(IV_jnts[[4]]) == "flexion_extension_P21")],
+                IV_jnts[[4]][which.max(abs(IV_jnts$AB_um_real_vrs$flexion_extension_P22)), which(colnames(IV_jnts[[4]]) == "flexion_extension_P22")],
+                IV_jnts[[4]][which.max(abs(IV_jnts$AB_um_real_vrs$flexion_extension_P23)), which(colnames(IV_jnts[[4]]) == "flexion_extension_P23")],
+                IV_jnts[[4]][which.max(abs(IV_jnts$AB_um_real_vrs$flexion_extension_P24)), which(colnames(IV_jnts[[4]]) == "flexion_extension_P24")],
+                IV_jnts[[4]][which.max(abs(IV_jnts$AB_um_real_vrs$flexion_extension_P25)), which(colnames(IV_jnts[[4]]) == "flexion_extension_P25")]))
+
+# make bar plots
+iv_bar <- ggplot() +
+  geom_bar(data = IV_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x), stat = "identity", fill = "#FF4C00", alpha = .3) +
+  geom_text(data = IV_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x, label = oROM_max_x), vjust = ifelse(IV_bar_data$oROM_max_x > 0, 1, -1), size = 3, colour = "black") +
+  geom_bar(data = IV_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x), stat = "identity", fill = "#FF4C00", alpha = .8) +
+  geom_text(data = IV_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x, label = oROM_real_x), vjust = ifelse(IV_bar_data$oROM_real_x > 0, 1, -0.5), size = 3, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Intervertebral joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 12))
+
+ggsave(plot = iv_bar, dpi = 600, bg = "white", 
+       filename = "bird_IV_jnt_oROM.png", 
+       device = "png", width = 28, heigh = 22, units = "cm")
+
+
+
+# vertebral rib joints
+# AB setup
+# vrs version
+cj_vrs_AB_bar_data <- data.frame(
+  jnt = c("C19", "C20", "C21", "C22", "C23", "C24", "C25"),
+  oROM_max_x = c(max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$axial_rotation_C19)), which(colnames(max_vrs[[2]]) == "axial_rotation_C19")],
+                 max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$axial_rotation_C20)), which(colnames(max_vrs[[2]]) == "axial_rotation_C20")],
+                 max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$axial_rotation_C21)), which(colnames(max_vrs[[2]]) == "axial_rotation_C21")],
+                 max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$axial_rotation_C22)), which(colnames(max_vrs[[2]]) == "axial_rotation_C22")],
+                 max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$axial_rotation_C23)), which(colnames(max_vrs[[2]]) == "axial_rotation_C23")],
+                 max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$axial_rotation_C24)), which(colnames(max_vrs[[2]]) == "axial_rotation_C24")],
+                 max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$axial_rotation_C25)), which(colnames(max_vrs[[2]]) == "axial_rotation_C25")]),
+  
+  oROM_max_y = c(max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$abduction_adduction_C19)), which(colnames(max_vrs[[2]]) == "abduction_adduction_C19")],
+                 max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$abduction_adduction_C20)), which(colnames(max_vrs[[2]]) == "abduction_adduction_C20")],
+                 max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$abduction_adduction_C21)), which(colnames(max_vrs[[2]]) == "abduction_adduction_C21")],
+                 max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$abduction_adduction_C22)), which(colnames(max_vrs[[2]]) == "abduction_adduction_C22")],
+                 max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$abduction_adduction_C23)), which(colnames(max_vrs[[2]]) == "abduction_adduction_C23")],
+                 max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$abduction_adduction_C24)), which(colnames(max_vrs[[2]]) == "abduction_adduction_C24")],
+                 max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$abduction_adduction_C25)), which(colnames(max_vrs[[2]]) == "abduction_adduction_C25")]),
+
+  oROM_max_z = c(max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$protraction_retraction_C19)), which(colnames(max_vrs[[2]]) == "protraction_retraction_C19")],
+                 max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$protraction_retraction_C20)), which(colnames(max_vrs[[2]]) == "protraction_retraction_C20")],
+                 max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$protraction_retraction_C21)), which(colnames(max_vrs[[2]]) == "protraction_retraction_C21")],
+                 max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$protraction_retraction_C22)), which(colnames(max_vrs[[2]]) == "protraction_retraction_C22")],
+                 max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$protraction_retraction_C23)), which(colnames(max_vrs[[2]]) == "protraction_retraction_C23")],
+                 max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$protraction_retraction_C24)), which(colnames(max_vrs[[2]]) == "protraction_retraction_C24")],
+                 max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$protraction_retraction_C25)), which(colnames(max_vrs[[2]]) == "protraction_retraction_C25")]),
+  
+  oROM_real_x = c(real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$axial_rotation_C19)), which(colnames(real_vrs[[2]]) == "axial_rotation_C19")],
+                 real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$axial_rotation_C20)), which(colnames(real_vrs[[2]]) == "axial_rotation_C20")],
+                 real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$axial_rotation_C21)), which(colnames(real_vrs[[2]]) == "axial_rotation_C21")],
+                 real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$axial_rotation_C22)), which(colnames(real_vrs[[2]]) == "axial_rotation_C22")],
+                 real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$axial_rotation_C23)), which(colnames(real_vrs[[2]]) == "axial_rotation_C23")],
+                 real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$axial_rotation_C24)), which(colnames(real_vrs[[2]]) == "axial_rotation_C24")],
+                 real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$axial_rotation_C25)), which(colnames(real_vrs[[2]]) == "axial_rotation_C25")]),
+  
+  oROM_real_y = c(real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$abduction_adduction_C19)), which(colnames(real_vrs[[2]]) == "abduction_adduction_C19")],
+                 real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$abduction_adduction_C20)), which(colnames(real_vrs[[2]]) == "abduction_adduction_C20")],
+                 real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$abduction_adduction_C21)), which(colnames(real_vrs[[2]]) == "abduction_adduction_C21")],
+                 real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$abduction_adduction_C22)), which(colnames(real_vrs[[2]]) == "abduction_adduction_C22")],
+                 real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$abduction_adduction_C23)), which(colnames(real_vrs[[2]]) == "abduction_adduction_C23")],
+                 real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$abduction_adduction_C24)), which(colnames(real_vrs[[2]]) == "abduction_adduction_C24")],
+                 real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$abduction_adduction_C25)), which(colnames(real_vrs[[2]]) == "abduction_adduction_C25")]),
+  
+  oROM_real_z = c(real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$protraction_retraction_C19)), which(colnames(real_vrs[[2]]) == "protraction_retraction_C19")],
+                 real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$protraction_retraction_C20)), which(colnames(real_vrs[[2]]) == "protraction_retraction_C20")],
+                 real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$protraction_retraction_C21)), which(colnames(real_vrs[[2]]) == "protraction_retraction_C21")],
+                 real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$protraction_retraction_C22)), which(colnames(real_vrs[[2]]) == "protraction_retraction_C22")],
+                 real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$protraction_retraction_C23)), which(colnames(real_vrs[[2]]) == "protraction_retraction_C23")],
+                 real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$protraction_retraction_C24)), which(colnames(real_vrs[[2]]) == "protraction_retraction_C24")],
+                 real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$protraction_retraction_C25)), which(colnames(real_vrs[[2]]) == "protraction_retraction_C25")]))
+
+
+# rs version
+cj_rs_AB_bar_data <- data.frame(
+  jnt = c("C19", "C20", "C21", "C22", "C23", "C24", "C25"),
+  oROM_max_x = c(max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$axial_rotation_C19)), which(colnames(max_rs[[2]]) == "axial_rotation_C19")],
+                 max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$axial_rotation_C20)), which(colnames(max_rs[[2]]) == "axial_rotation_C20")],
+                 max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$axial_rotation_C21)), which(colnames(max_rs[[2]]) == "axial_rotation_C21")],
+                 max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$axial_rotation_C22)), which(colnames(max_rs[[2]]) == "axial_rotation_C22")],
+                 max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$axial_rotation_C23)), which(colnames(max_rs[[2]]) == "axial_rotation_C23")],
+                 max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$axial_rotation_C24)), which(colnames(max_rs[[2]]) == "axial_rotation_C24")],
+                 max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$axial_rotation_C25)), which(colnames(max_rs[[2]]) == "axial_rotation_C25")]),
+  
+  oROM_max_y = c(max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$abduction_adduction_C19)), which(colnames(max_rs[[2]]) == "abduction_adduction_C19")],
+                 max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$abduction_adduction_C20)), which(colnames(max_rs[[2]]) == "abduction_adduction_C20")],
+                 max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$abduction_adduction_C21)), which(colnames(max_rs[[2]]) == "abduction_adduction_C21")],
+                 max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$abduction_adduction_C22)), which(colnames(max_rs[[2]]) == "abduction_adduction_C22")],
+                 max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$abduction_adduction_C23)), which(colnames(max_rs[[2]]) == "abduction_adduction_C23")],
+                 max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$abduction_adduction_C24)), which(colnames(max_rs[[2]]) == "abduction_adduction_C24")],
+                 max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$abduction_adduction_C25)), which(colnames(max_rs[[2]]) == "abduction_adduction_C25")]),
+  
+  oROM_max_z = c(max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$protraction_retraction_C19)), which(colnames(max_rs[[2]]) == "protraction_retraction_C19")],
+                 max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$protraction_retraction_C20)), which(colnames(max_rs[[2]]) == "protraction_retraction_C20")],
+                 max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$protraction_retraction_C21)), which(colnames(max_rs[[2]]) == "protraction_retraction_C21")],
+                 max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$protraction_retraction_C22)), which(colnames(max_rs[[2]]) == "protraction_retraction_C22")],
+                 max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$protraction_retraction_C23)), which(colnames(max_rs[[2]]) == "protraction_retraction_C23")],
+                 max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$protraction_retraction_C24)), which(colnames(max_rs[[2]]) == "protraction_retraction_C24")],
+                 max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$protraction_retraction_C25)), which(colnames(max_rs[[2]]) == "protraction_retraction_C25")]),
+  
+  oROM_real_x = c(real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$axial_rotation_C19)), which(colnames(real_rs[[2]]) == "axial_rotation_C19")],
+                  real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$axial_rotation_C20)), which(colnames(real_rs[[2]]) == "axial_rotation_C20")],
+                  real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$axial_rotation_C21)), which(colnames(real_rs[[2]]) == "axial_rotation_C21")],
+                  real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$axial_rotation_C22)), which(colnames(real_rs[[2]]) == "axial_rotation_C22")],
+                  real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$axial_rotation_C23)), which(colnames(real_rs[[2]]) == "axial_rotation_C23")],
+                  real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$axial_rotation_C24)), which(colnames(real_rs[[2]]) == "axial_rotation_C24")],
+                  real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$axial_rotation_C25)), which(colnames(real_rs[[2]]) == "axial_rotation_C25")]),
+  
+  oROM_real_y = c(real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$abduction_adduction_C19)), which(colnames(real_rs[[2]]) == "abduction_adduction_C19")],
+                  real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$abduction_adduction_C20)), which(colnames(real_rs[[2]]) == "abduction_adduction_C20")],
+                  real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$abduction_adduction_C21)), which(colnames(real_rs[[2]]) == "abduction_adduction_C21")],
+                  real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$abduction_adduction_C22)), which(colnames(real_rs[[2]]) == "abduction_adduction_C22")],
+                  real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$abduction_adduction_C23)), which(colnames(real_rs[[2]]) == "abduction_adduction_C23")],
+                  real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$abduction_adduction_C24)), which(colnames(real_rs[[2]]) == "abduction_adduction_C24")],
+                  real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$abduction_adduction_C25)), which(colnames(real_rs[[2]]) == "abduction_adduction_C25")]),
+  
+  oROM_real_z = c(real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$protraction_retraction_C19)), which(colnames(real_rs[[2]]) == "protraction_retraction_C19")],
+                  real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$protraction_retraction_C20)), which(colnames(real_rs[[2]]) == "protraction_retraction_C20")],
+                  real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$protraction_retraction_C21)), which(colnames(real_rs[[2]]) == "protraction_retraction_C21")],
+                  real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$protraction_retraction_C22)), which(colnames(real_rs[[2]]) == "protraction_retraction_C22")],
+                  real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$protraction_retraction_C23)), which(colnames(real_rs[[2]]) == "protraction_retraction_C23")],
+                  real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$protraction_retraction_C24)), which(colnames(real_rs[[2]]) == "protraction_retraction_C24")],
+                  real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$protraction_retraction_C25)), which(colnames(real_rs[[2]]) == "protraction_retraction_C25")]))
+  
+  
+# r version  
+cj_r_AB_bar_data <- data.frame(
+  jnt = c("C19", "C20", "C21", "C22", "C23", "C24", "C25"),
+  oROM_max_x = c(max_r[[2]][which.max(abs(max_r$AB_um_max_r$axial_rotation_C19)), which(colnames(max_r[[2]]) == "axial_rotation_C19")],
+                 max_r[[2]][which.max(abs(max_r$AB_um_max_r$axial_rotation_C20)), which(colnames(max_r[[2]]) == "axial_rotation_C20")],
+                 max_r[[2]][which.max(abs(max_r$AB_um_max_r$axial_rotation_C21)), which(colnames(max_r[[2]]) == "axial_rotation_C21")],
+                 max_r[[2]][which.max(abs(max_r$AB_um_max_r$axial_rotation_C22)), which(colnames(max_r[[2]]) == "axial_rotation_C22")],
+                 max_r[[2]][which.max(abs(max_r$AB_um_max_r$axial_rotation_C23)), which(colnames(max_r[[2]]) == "axial_rotation_C23")],
+                 max_r[[2]][which.max(abs(max_r$AB_um_max_r$axial_rotation_C24)), which(colnames(max_r[[2]]) == "axial_rotation_C24")],
+                 max_r[[2]][which.max(abs(max_r$AB_um_max_r$axial_rotation_C25)), which(colnames(max_r[[2]]) == "axial_rotation_C25")]),
+  
+  oROM_max_y = c(max_r[[2]][which.max(abs(max_r$AB_um_max_r$abduction_adduction_C19)), which(colnames(max_r[[2]]) == "abduction_adduction_C19")],
+                 max_r[[2]][which.max(abs(max_r$AB_um_max_r$abduction_adduction_C20)), which(colnames(max_r[[2]]) == "abduction_adduction_C20")],
+                 max_r[[2]][which.max(abs(max_r$AB_um_max_r$abduction_adduction_C21)), which(colnames(max_r[[2]]) == "abduction_adduction_C21")],
+                 max_r[[2]][which.max(abs(max_r$AB_um_max_r$abduction_adduction_C22)), which(colnames(max_r[[2]]) == "abduction_adduction_C22")],
+                 max_r[[2]][which.max(abs(max_r$AB_um_max_r$abduction_adduction_C23)), which(colnames(max_r[[2]]) == "abduction_adduction_C23")],
+                 max_r[[2]][which.max(abs(max_r$AB_um_max_r$abduction_adduction_C24)), which(colnames(max_r[[2]]) == "abduction_adduction_C24")],
+                 max_r[[2]][which.max(abs(max_r$AB_um_max_r$abduction_adduction_C25)), which(colnames(max_r[[2]]) == "abduction_adduction_C25")]),
+  
+  oROM_max_z = c(max_r[[2]][which.max(abs(max_r$AB_um_max_r$protraction_retraction_C19)), which(colnames(max_r[[2]]) == "protraction_retraction_C19")],
+                 max_r[[2]][which.max(abs(max_r$AB_um_max_r$protraction_retraction_C20)), which(colnames(max_r[[2]]) == "protraction_retraction_C20")],
+                 max_r[[2]][which.max(abs(max_r$AB_um_max_r$protraction_retraction_C21)), which(colnames(max_r[[2]]) == "protraction_retraction_C21")],
+                 max_r[[2]][which.max(abs(max_r$AB_um_max_r$protraction_retraction_C22)), which(colnames(max_r[[2]]) == "protraction_retraction_C22")],
+                 max_r[[2]][which.max(abs(max_r$AB_um_max_r$protraction_retraction_C23)), which(colnames(max_r[[2]]) == "protraction_retraction_C23")],
+                 max_r[[2]][which.max(abs(max_r$AB_um_max_r$protraction_retraction_C24)), which(colnames(max_r[[2]]) == "protraction_retraction_C24")],
+                 max_r[[2]][which.max(abs(max_r$AB_um_max_r$protraction_retraction_C25)), which(colnames(max_r[[2]]) == "protraction_retraction_C25")]),
+  
+  oROM_real_x = c(real_r[[2]][which.max(abs(real_r$AB_um_real_r$axial_rotation_C19)), which(colnames(real_r[[2]]) == "axial_rotation_C19")],
+                  real_r[[2]][which.max(abs(real_r$AB_um_real_r$axial_rotation_C20)), which(colnames(real_r[[2]]) == "axial_rotation_C20")],
+                  real_r[[2]][which.max(abs(real_r$AB_um_real_r$axial_rotation_C21)), which(colnames(real_r[[2]]) == "axial_rotation_C21")],
+                  real_r[[2]][which.max(abs(real_r$AB_um_real_r$axial_rotation_C22)), which(colnames(real_r[[2]]) == "axial_rotation_C22")],
+                  real_r[[2]][which.max(abs(real_r$AB_um_real_r$axial_rotation_C23)), which(colnames(real_r[[2]]) == "axial_rotation_C23")],
+                  real_r[[2]][which.max(abs(real_r$AB_um_real_r$axial_rotation_C24)), which(colnames(real_r[[2]]) == "axial_rotation_C24")],
+                  real_r[[2]][which.max(abs(real_r$AB_um_real_r$axial_rotation_C25)), which(colnames(real_r[[2]]) == "axial_rotation_C25")]),
+  
+  oROM_real_y = c(real_r[[2]][which.max(abs(real_r$AB_um_real_r$abduction_adduction_C19)), which(colnames(real_r[[2]]) == "abduction_adduction_C19")],
+                  real_r[[2]][which.max(abs(real_r$AB_um_real_r$abduction_adduction_C20)), which(colnames(real_r[[2]]) == "abduction_adduction_C20")],
+                  real_r[[2]][which.max(abs(real_r$AB_um_real_r$abduction_adduction_C21)), which(colnames(real_r[[2]]) == "abduction_adduction_C21")],
+                  real_r[[2]][which.max(abs(real_r$AB_um_real_r$abduction_adduction_C22)), which(colnames(real_r[[2]]) == "abduction_adduction_C22")],
+                  real_r[[2]][which.max(abs(real_r$AB_um_real_r$abduction_adduction_C23)), which(colnames(real_r[[2]]) == "abduction_adduction_C23")],
+                  real_r[[2]][which.max(abs(real_r$AB_um_real_r$abduction_adduction_C24)), which(colnames(real_r[[2]]) == "abduction_adduction_C24")],
+                  real_r[[2]][which.max(abs(real_r$AB_um_real_r$abduction_adduction_C25)), which(colnames(real_r[[2]]) == "abduction_adduction_C25")]),
+  
+  oROM_real_z = c(real_r[[2]][which.max(abs(real_r$AB_um_real_r$protraction_retraction_C19)), which(colnames(real_r[[2]]) == "protraction_retraction_C19")],
+                  real_r[[2]][which.max(abs(real_r$AB_um_real_r$protraction_retraction_C20)), which(colnames(real_r[[2]]) == "protraction_retraction_C20")],
+                  real_r[[2]][which.max(abs(real_r$AB_um_real_r$protraction_retraction_C21)), which(colnames(real_r[[2]]) == "protraction_retraction_C21")],
+                  real_r[[2]][which.max(abs(real_r$AB_um_real_r$protraction_retraction_C22)), which(colnames(real_r[[2]]) == "protraction_retraction_C22")],
+                  real_r[[2]][which.max(abs(real_r$AB_um_real_r$protraction_retraction_C23)), which(colnames(real_r[[2]]) == "protraction_retraction_C23")],
+                  real_r[[2]][which.max(abs(real_r$AB_um_real_r$protraction_retraction_C24)), which(colnames(real_r[[2]]) == "protraction_retraction_C24")],
+                  real_r[[2]][which.max(abs(real_r$AB_um_real_r$protraction_retraction_C25)), which(colnames(real_r[[2]]) == "protraction_retraction_C25")]))  
+
+
+# AJ setup
+# vrs version
+cj_vrs_AJ_bar_data <- data.frame(
+  jnt = c("C19", "C20", "C21", "C22", "C23", "C24", "C25"),
+  oROM_max_x = c(max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$axial_rotation_C19)), which(colnames(max_vrs[[4]]) == "axial_rotation_C19")],
+                 max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$axial_rotation_C20)), which(colnames(max_vrs[[4]]) == "axial_rotation_C20")],
+                 max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$axial_rotation_C21)), which(colnames(max_vrs[[4]]) == "axial_rotation_C21")],
+                 max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$axial_rotation_C22)), which(colnames(max_vrs[[4]]) == "axial_rotation_C22")],
+                 max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$axial_rotation_C23)), which(colnames(max_vrs[[4]]) == "axial_rotation_C23")],
+                 max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$axial_rotation_C24)), which(colnames(max_vrs[[4]]) == "axial_rotation_C24")],
+                 max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$axial_rotation_C25)), which(colnames(max_vrs[[4]]) == "axial_rotation_C25")]),
+  
+  oROM_max_y = c(max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$abduction_adduction_C19)), which(colnames(max_vrs[[4]]) == "abduction_adduction_C19")],
+                 max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$abduction_adduction_C20)), which(colnames(max_vrs[[4]]) == "abduction_adduction_C20")],
+                 max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$abduction_adduction_C21)), which(colnames(max_vrs[[4]]) == "abduction_adduction_C21")],
+                 max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$abduction_adduction_C22)), which(colnames(max_vrs[[4]]) == "abduction_adduction_C22")],
+                 max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$abduction_adduction_C23)), which(colnames(max_vrs[[4]]) == "abduction_adduction_C23")],
+                 max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$abduction_adduction_C24)), which(colnames(max_vrs[[4]]) == "abduction_adduction_C24")],
+                 max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$abduction_adduction_C25)), which(colnames(max_vrs[[4]]) == "abduction_adduction_C25")]),
+  
+  oROM_max_z = c(max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$protraction_retraction_C19)), which(colnames(max_vrs[[4]]) == "protraction_retraction_C19")],
+                 max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$protraction_retraction_C20)), which(colnames(max_vrs[[4]]) == "protraction_retraction_C20")],
+                 max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$protraction_retraction_C21)), which(colnames(max_vrs[[4]]) == "protraction_retraction_C21")],
+                 max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$protraction_retraction_C22)), which(colnames(max_vrs[[4]]) == "protraction_retraction_C22")],
+                 max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$protraction_retraction_C23)), which(colnames(max_vrs[[4]]) == "protraction_retraction_C23")],
+                 max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$protraction_retraction_C24)), which(colnames(max_vrs[[4]]) == "protraction_retraction_C24")],
+                 max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$protraction_retraction_C25)), which(colnames(max_vrs[[4]]) == "protraction_retraction_C25")]),
+  
+  oROM_real_x = c(real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$axial_rotation_C19)), which(colnames(real_vrs[[4]]) == "axial_rotation_C19")],
+                  real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$axial_rotation_C20)), which(colnames(real_vrs[[4]]) == "axial_rotation_C20")],
+                  real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$axial_rotation_C21)), which(colnames(real_vrs[[4]]) == "axial_rotation_C21")],
+                  real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$axial_rotation_C22)), which(colnames(real_vrs[[4]]) == "axial_rotation_C22")],
+                  real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$axial_rotation_C23)), which(colnames(real_vrs[[4]]) == "axial_rotation_C23")],
+                  real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$axial_rotation_C24)), which(colnames(real_vrs[[4]]) == "axial_rotation_C24")],
+                  real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$axial_rotation_C25)), which(colnames(real_vrs[[4]]) == "axial_rotation_C25")]),
+  
+  oROM_real_y = c(real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$abduction_adduction_C19)), which(colnames(real_vrs[[4]]) == "abduction_adduction_C19")],
+                  real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$abduction_adduction_C20)), which(colnames(real_vrs[[4]]) == "abduction_adduction_C20")],
+                  real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$abduction_adduction_C21)), which(colnames(real_vrs[[4]]) == "abduction_adduction_C21")],
+                  real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$abduction_adduction_C22)), which(colnames(real_vrs[[4]]) == "abduction_adduction_C22")],
+                  real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$abduction_adduction_C23)), which(colnames(real_vrs[[4]]) == "abduction_adduction_C23")],
+                  real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$abduction_adduction_C24)), which(colnames(real_vrs[[4]]) == "abduction_adduction_C24")],
+                  real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$abduction_adduction_C25)), which(colnames(real_vrs[[4]]) == "abduction_adduction_C25")]),
+  
+  oROM_real_z = c(real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$protraction_retraction_C19)), which(colnames(real_vrs[[4]]) == "protraction_retraction_C19")],
+                  real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$protraction_retraction_C20)), which(colnames(real_vrs[[4]]) == "protraction_retraction_C20")],
+                  real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$protraction_retraction_C21)), which(colnames(real_vrs[[4]]) == "protraction_retraction_C21")],
+                  real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$protraction_retraction_C22)), which(colnames(real_vrs[[4]]) == "protraction_retraction_C22")],
+                  real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$protraction_retraction_C23)), which(colnames(real_vrs[[4]]) == "protraction_retraction_C23")],
+                  real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$protraction_retraction_C24)), which(colnames(real_vrs[[4]]) == "protraction_retraction_C24")],
+                  real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$protraction_retraction_C25)), which(colnames(real_vrs[[4]]) == "protraction_retraction_C25")]))
+
+
+# rs version
+cj_rs_AJ_bar_data <- data.frame(
+  jnt = c("C19", "C20", "C21", "C22", "C23", "C24", "C25"),
+  oROM_max_x = c(max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$axial_rotation_C19)), which(colnames(max_rs[[4]]) == "axial_rotation_C19")],
+                 max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$axial_rotation_C20)), which(colnames(max_rs[[4]]) == "axial_rotation_C20")],
+                 max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$axial_rotation_C21)), which(colnames(max_rs[[4]]) == "axial_rotation_C21")],
+                 max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$axial_rotation_C22)), which(colnames(max_rs[[4]]) == "axial_rotation_C22")],
+                 max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$axial_rotation_C23)), which(colnames(max_rs[[4]]) == "axial_rotation_C23")],
+                 max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$axial_rotation_C24)), which(colnames(max_rs[[4]]) == "axial_rotation_C24")],
+                 max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$axial_rotation_C25)), which(colnames(max_rs[[4]]) == "axial_rotation_C25")]),
+  
+  oROM_max_y = c(max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$abduction_adduction_C19)), which(colnames(max_rs[[4]]) == "abduction_adduction_C19")],
+                 max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$abduction_adduction_C20)), which(colnames(max_rs[[4]]) == "abduction_adduction_C20")],
+                 max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$abduction_adduction_C21)), which(colnames(max_rs[[4]]) == "abduction_adduction_C21")],
+                 max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$abduction_adduction_C22)), which(colnames(max_rs[[4]]) == "abduction_adduction_C22")],
+                 max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$abduction_adduction_C23)), which(colnames(max_rs[[4]]) == "abduction_adduction_C23")],
+                 max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$abduction_adduction_C24)), which(colnames(max_rs[[4]]) == "abduction_adduction_C24")],
+                 max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$abduction_adduction_C25)), which(colnames(max_rs[[4]]) == "abduction_adduction_C25")]),
+  
+  oROM_max_z = c(max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$protraction_retraction_C19)), which(colnames(max_rs[[4]]) == "protraction_retraction_C19")],
+                 max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$protraction_retraction_C20)), which(colnames(max_rs[[4]]) == "protraction_retraction_C20")],
+                 max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$protraction_retraction_C21)), which(colnames(max_rs[[4]]) == "protraction_retraction_C21")],
+                 max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$protraction_retraction_C22)), which(colnames(max_rs[[4]]) == "protraction_retraction_C22")],
+                 max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$protraction_retraction_C23)), which(colnames(max_rs[[4]]) == "protraction_retraction_C23")],
+                 max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$protraction_retraction_C24)), which(colnames(max_rs[[4]]) == "protraction_retraction_C24")],
+                 max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$protraction_retraction_C25)), which(colnames(max_rs[[4]]) == "protraction_retraction_C25")]),
+  
+  oROM_real_x = c(real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$axial_rotation_C19)), which(colnames(real_rs[[4]]) == "axial_rotation_C19")],
+                  real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$axial_rotation_C20)), which(colnames(real_rs[[4]]) == "axial_rotation_C20")],
+                  real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$axial_rotation_C21)), which(colnames(real_rs[[4]]) == "axial_rotation_C21")],
+                  real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$axial_rotation_C22)), which(colnames(real_rs[[4]]) == "axial_rotation_C22")],
+                  real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$axial_rotation_C23)), which(colnames(real_rs[[4]]) == "axial_rotation_C23")],
+                  real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$axial_rotation_C24)), which(colnames(real_rs[[4]]) == "axial_rotation_C24")],
+                  real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$axial_rotation_C25)), which(colnames(real_rs[[4]]) == "axial_rotation_C25")]),
+  
+  oROM_real_y = c(real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$abduction_adduction_C19)), which(colnames(real_rs[[4]]) == "abduction_adduction_C19")],
+                  real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$abduction_adduction_C20)), which(colnames(real_rs[[4]]) == "abduction_adduction_C20")],
+                  real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$abduction_adduction_C21)), which(colnames(real_rs[[4]]) == "abduction_adduction_C21")],
+                  real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$abduction_adduction_C22)), which(colnames(real_rs[[4]]) == "abduction_adduction_C22")],
+                  real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$abduction_adduction_C23)), which(colnames(real_rs[[4]]) == "abduction_adduction_C23")],
+                  real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$abduction_adduction_C24)), which(colnames(real_rs[[4]]) == "abduction_adduction_C24")],
+                  real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$abduction_adduction_C25)), which(colnames(real_rs[[4]]) == "abduction_adduction_C25")]),
+  
+  oROM_real_z = c(real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$protraction_retraction_C19)), which(colnames(real_rs[[4]]) == "protraction_retraction_C19")],
+                  real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$protraction_retraction_C20)), which(colnames(real_rs[[4]]) == "protraction_retraction_C20")],
+                  real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$protraction_retraction_C21)), which(colnames(real_rs[[4]]) == "protraction_retraction_C21")],
+                  real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$protraction_retraction_C22)), which(colnames(real_rs[[4]]) == "protraction_retraction_C22")],
+                  real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$protraction_retraction_C23)), which(colnames(real_rs[[4]]) == "protraction_retraction_C23")],
+                  real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$protraction_retraction_C24)), which(colnames(real_rs[[4]]) == "protraction_retraction_C24")],
+                  real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$protraction_retraction_C25)), which(colnames(real_rs[[4]]) == "protraction_retraction_C25")]))
+
+
+# r version  
+cj_r_AJ_bar_data <- data.frame(
+  jnt = c("C19", "C20", "C21", "C22", "C23", "C24", "C25"),
+  oROM_max_x = c(max_r[[4]][which.max(abs(max_r$AJ_um_max_r$axial_rotation_C19)), which(colnames(max_r[[4]]) == "axial_rotation_C19")],
+                 max_r[[4]][which.max(abs(max_r$AJ_um_max_r$axial_rotation_C20)), which(colnames(max_r[[4]]) == "axial_rotation_C20")],
+                 max_r[[4]][which.max(abs(max_r$AJ_um_max_r$axial_rotation_C21)), which(colnames(max_r[[4]]) == "axial_rotation_C21")],
+                 max_r[[4]][which.max(abs(max_r$AJ_um_max_r$axial_rotation_C22)), which(colnames(max_r[[4]]) == "axial_rotation_C22")],
+                 max_r[[4]][which.max(abs(max_r$AJ_um_max_r$axial_rotation_C23)), which(colnames(max_r[[4]]) == "axial_rotation_C23")],
+                 max_r[[4]][which.max(abs(max_r$AJ_um_max_r$axial_rotation_C24)), which(colnames(max_r[[4]]) == "axial_rotation_C24")],
+                 max_r[[4]][which.max(abs(max_r$AJ_um_max_r$axial_rotation_C25)), which(colnames(max_r[[4]]) == "axial_rotation_C25")]),
+  
+  oROM_max_y = c(max_r[[4]][which.max(abs(max_r$AJ_um_max_r$abduction_adduction_C19)), which(colnames(max_r[[4]]) == "abduction_adduction_C19")],
+                 max_r[[4]][which.max(abs(max_r$AJ_um_max_r$abduction_adduction_C20)), which(colnames(max_r[[4]]) == "abduction_adduction_C20")],
+                 max_r[[4]][which.max(abs(max_r$AJ_um_max_r$abduction_adduction_C21)), which(colnames(max_r[[4]]) == "abduction_adduction_C21")],
+                 max_r[[4]][which.max(abs(max_r$AJ_um_max_r$abduction_adduction_C22)), which(colnames(max_r[[4]]) == "abduction_adduction_C22")],
+                 max_r[[4]][which.max(abs(max_r$AJ_um_max_r$abduction_adduction_C23)), which(colnames(max_r[[4]]) == "abduction_adduction_C23")],
+                 max_r[[4]][which.max(abs(max_r$AJ_um_max_r$abduction_adduction_C24)), which(colnames(max_r[[4]]) == "abduction_adduction_C24")],
+                 max_r[[4]][which.max(abs(max_r$AJ_um_max_r$abduction_adduction_C25)), which(colnames(max_r[[4]]) == "abduction_adduction_C25")]),
+  
+  oROM_max_z = c(max_r[[4]][which.max(abs(max_r$AJ_um_max_r$protraction_retraction_C19)), which(colnames(max_r[[4]]) == "protraction_retraction_C19")],
+                 max_r[[4]][which.max(abs(max_r$AJ_um_max_r$protraction_retraction_C20)), which(colnames(max_r[[4]]) == "protraction_retraction_C20")],
+                 max_r[[4]][which.max(abs(max_r$AJ_um_max_r$protraction_retraction_C21)), which(colnames(max_r[[4]]) == "protraction_retraction_C21")],
+                 max_r[[4]][which.max(abs(max_r$AJ_um_max_r$protraction_retraction_C22)), which(colnames(max_r[[4]]) == "protraction_retraction_C22")],
+                 max_r[[4]][which.max(abs(max_r$AJ_um_max_r$protraction_retraction_C23)), which(colnames(max_r[[4]]) == "protraction_retraction_C23")],
+                 max_r[[4]][which.max(abs(max_r$AJ_um_max_r$protraction_retraction_C24)), which(colnames(max_r[[4]]) == "protraction_retraction_C24")],
+                 max_r[[4]][which.max(abs(max_r$AJ_um_max_r$protraction_retraction_C25)), which(colnames(max_r[[4]]) == "protraction_retraction_C25")]),
+  
+  oROM_real_x = c(real_r[[4]][which.max(abs(real_r$AJ_um_real_r$axial_rotation_C19)), which(colnames(real_r[[4]]) == "axial_rotation_C19")],
+                  real_r[[4]][which.max(abs(real_r$AJ_um_real_r$axial_rotation_C20)), which(colnames(real_r[[4]]) == "axial_rotation_C20")],
+                  real_r[[4]][which.max(abs(real_r$AJ_um_real_r$axial_rotation_C21)), which(colnames(real_r[[4]]) == "axial_rotation_C21")],
+                  real_r[[4]][which.max(abs(real_r$AJ_um_real_r$axial_rotation_C22)), which(colnames(real_r[[4]]) == "axial_rotation_C22")],
+                  real_r[[4]][which.max(abs(real_r$AJ_um_real_r$axial_rotation_C23)), which(colnames(real_r[[4]]) == "axial_rotation_C23")],
+                  real_r[[4]][which.max(abs(real_r$AJ_um_real_r$axial_rotation_C24)), which(colnames(real_r[[4]]) == "axial_rotation_C24")],
+                  real_r[[4]][which.max(abs(real_r$AJ_um_real_r$axial_rotation_C25)), which(colnames(real_r[[4]]) == "axial_rotation_C25")]),
+  
+  oROM_real_y = c(real_r[[4]][which.max(abs(real_r$AJ_um_real_r$abduction_adduction_C19)), which(colnames(real_r[[4]]) == "abduction_adduction_C19")],
+                  real_r[[4]][which.max(abs(real_r$AJ_um_real_r$abduction_adduction_C20)), which(colnames(real_r[[4]]) == "abduction_adduction_C20")],
+                  real_r[[4]][which.max(abs(real_r$AJ_um_real_r$abduction_adduction_C21)), which(colnames(real_r[[4]]) == "abduction_adduction_C21")],
+                  real_r[[4]][which.max(abs(real_r$AJ_um_real_r$abduction_adduction_C22)), which(colnames(real_r[[4]]) == "abduction_adduction_C22")],
+                  real_r[[4]][which.max(abs(real_r$AJ_um_real_r$abduction_adduction_C23)), which(colnames(real_r[[4]]) == "abduction_adduction_C23")],
+                  real_r[[4]][which.max(abs(real_r$AJ_um_real_r$abduction_adduction_C24)), which(colnames(real_r[[4]]) == "abduction_adduction_C24")],
+                  real_r[[4]][which.max(abs(real_r$AJ_um_real_r$abduction_adduction_C25)), which(colnames(real_r[[4]]) == "abduction_adduction_C25")]),
+  
+  oROM_real_z = c(real_r[[4]][which.max(abs(real_r$AJ_um_real_r$protraction_retraction_C19)), which(colnames(real_r[[4]]) == "protraction_retraction_C19")],
+                  real_r[[4]][which.max(abs(real_r$AJ_um_real_r$protraction_retraction_C20)), which(colnames(real_r[[4]]) == "protraction_retraction_C20")],
+                  real_r[[4]][which.max(abs(real_r$AJ_um_real_r$protraction_retraction_C21)), which(colnames(real_r[[4]]) == "protraction_retraction_C21")],
+                  real_r[[4]][which.max(abs(real_r$AJ_um_real_r$protraction_retraction_C22)), which(colnames(real_r[[4]]) == "protraction_retraction_C22")],
+                  real_r[[4]][which.max(abs(real_r$AJ_um_real_r$protraction_retraction_C23)), which(colnames(real_r[[4]]) == "protraction_retraction_C23")],
+                  real_r[[4]][which.max(abs(real_r$AJ_um_real_r$protraction_retraction_C24)), which(colnames(real_r[[4]]) == "protraction_retraction_C24")],
+                  real_r[[4]][which.max(abs(real_r$AJ_um_real_r$protraction_retraction_C25)), which(colnames(real_r[[4]]) == "protraction_retraction_C25")]))  
+
+
+# CBP setup
+# vrs version
+cj_vrs_CBP_bar_data <- data.frame(
+  jnt = c("C19", "C20", "C21", "C22", "C23", "C24", "C25"),
+  oROM_max_x = c(max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$axial_rotation_C19)), which(colnames(max_vrs[[6]]) == "axial_rotation_C19")],
+                 max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$axial_rotation_C20)), which(colnames(max_vrs[[6]]) == "axial_rotation_C20")],
+                 max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$axial_rotation_C21)), which(colnames(max_vrs[[6]]) == "axial_rotation_C21")],
+                 max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$axial_rotation_C22)), which(colnames(max_vrs[[6]]) == "axial_rotation_C22")],
+                 max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$axial_rotation_C23)), which(colnames(max_vrs[[6]]) == "axial_rotation_C23")],
+                 max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$axial_rotation_C24)), which(colnames(max_vrs[[6]]) == "axial_rotation_C24")],
+                 max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$axial_rotation_C25)), which(colnames(max_vrs[[6]]) == "axial_rotation_C25")]),
+  
+  oROM_max_y = c(max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$abduction_adduction_C19)), which(colnames(max_vrs[[6]]) == "abduction_adduction_C19")],
+                 max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$abduction_adduction_C20)), which(colnames(max_vrs[[6]]) == "abduction_adduction_C20")],
+                 max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$abduction_adduction_C21)), which(colnames(max_vrs[[6]]) == "abduction_adduction_C21")],
+                 max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$abduction_adduction_C22)), which(colnames(max_vrs[[6]]) == "abduction_adduction_C22")],
+                 max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$abduction_adduction_C23)), which(colnames(max_vrs[[6]]) == "abduction_adduction_C23")],
+                 max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$abduction_adduction_C24)), which(colnames(max_vrs[[6]]) == "abduction_adduction_C24")],
+                 max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$abduction_adduction_C25)), which(colnames(max_vrs[[6]]) == "abduction_adduction_C25")]),
+  
+  oROM_max_z = c(max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$protraction_retraction_C19)), which(colnames(max_vrs[[6]]) == "protraction_retraction_C19")],
+                 max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$protraction_retraction_C20)), which(colnames(max_vrs[[6]]) == "protraction_retraction_C20")],
+                 max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$protraction_retraction_C21)), which(colnames(max_vrs[[6]]) == "protraction_retraction_C21")],
+                 max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$protraction_retraction_C22)), which(colnames(max_vrs[[6]]) == "protraction_retraction_C22")],
+                 max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$protraction_retraction_C23)), which(colnames(max_vrs[[6]]) == "protraction_retraction_C23")],
+                 max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$protraction_retraction_C24)), which(colnames(max_vrs[[6]]) == "protraction_retraction_C24")],
+                 max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$protraction_retraction_C25)), which(colnames(max_vrs[[6]]) == "protraction_retraction_C25")]),
+  
+  oROM_real_x = c(real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$axial_rotation_C19)), which(colnames(real_vrs[[6]]) == "axial_rotation_C19")],
+                  real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$axial_rotation_C20)), which(colnames(real_vrs[[6]]) == "axial_rotation_C20")],
+                  real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$axial_rotation_C21)), which(colnames(real_vrs[[6]]) == "axial_rotation_C21")],
+                  real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$axial_rotation_C22)), which(colnames(real_vrs[[6]]) == "axial_rotation_C22")],
+                  real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$axial_rotation_C23)), which(colnames(real_vrs[[6]]) == "axial_rotation_C23")],
+                  real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$axial_rotation_C24)), which(colnames(real_vrs[[6]]) == "axial_rotation_C24")],
+                  real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$axial_rotation_C25)), which(colnames(real_vrs[[6]]) == "axial_rotation_C25")]),
+  
+  oROM_real_y = c(real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$abduction_adduction_C19)), which(colnames(real_vrs[[6]]) == "abduction_adduction_C19")],
+                  real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$abduction_adduction_C20)), which(colnames(real_vrs[[6]]) == "abduction_adduction_C20")],
+                  real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$abduction_adduction_C21)), which(colnames(real_vrs[[6]]) == "abduction_adduction_C21")],
+                  real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$abduction_adduction_C22)), which(colnames(real_vrs[[6]]) == "abduction_adduction_C22")],
+                  real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$abduction_adduction_C23)), which(colnames(real_vrs[[6]]) == "abduction_adduction_C23")],
+                  real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$abduction_adduction_C24)), which(colnames(real_vrs[[6]]) == "abduction_adduction_C24")],
+                  real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$abduction_adduction_C25)), which(colnames(real_vrs[[6]]) == "abduction_adduction_C25")]),
+  
+  oROM_real_z = c(real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$protraction_retraction_C19)), which(colnames(real_vrs[[6]]) == "protraction_retraction_C19")],
+                  real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$protraction_retraction_C20)), which(colnames(real_vrs[[6]]) == "protraction_retraction_C20")],
+                  real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$protraction_retraction_C21)), which(colnames(real_vrs[[6]]) == "protraction_retraction_C21")],
+                  real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$protraction_retraction_C22)), which(colnames(real_vrs[[6]]) == "protraction_retraction_C22")],
+                  real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$protraction_retraction_C23)), which(colnames(real_vrs[[6]]) == "protraction_retraction_C23")],
+                  real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$protraction_retraction_C24)), which(colnames(real_vrs[[6]]) == "protraction_retraction_C24")],
+                  real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$protraction_retraction_C25)), which(colnames(real_vrs[[6]]) == "protraction_retraction_C25")]))
+
+
+# rs version
+cj_rs_CBP_bar_data <- data.frame(
+  jnt = c("C19", "C20", "C21", "C22", "C23", "C24", "C25"),
+  oROM_max_x = c(max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$axial_rotation_C19)), which(colnames(max_rs[[6]]) == "axial_rotation_C19")],
+                 max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$axial_rotation_C20)), which(colnames(max_rs[[6]]) == "axial_rotation_C20")],
+                 max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$axial_rotation_C21)), which(colnames(max_rs[[6]]) == "axial_rotation_C21")],
+                 max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$axial_rotation_C22)), which(colnames(max_rs[[6]]) == "axial_rotation_C22")],
+                 max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$axial_rotation_C23)), which(colnames(max_rs[[6]]) == "axial_rotation_C23")],
+                 max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$axial_rotation_C24)), which(colnames(max_rs[[6]]) == "axial_rotation_C24")],
+                 max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$axial_rotation_C25)), which(colnames(max_rs[[6]]) == "axial_rotation_C25")]),
+  
+  oROM_max_y = c(max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$abduction_adduction_C19)), which(colnames(max_rs[[6]]) == "abduction_adduction_C19")],
+                 max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$abduction_adduction_C20)), which(colnames(max_rs[[6]]) == "abduction_adduction_C20")],
+                 max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$abduction_adduction_C21)), which(colnames(max_rs[[6]]) == "abduction_adduction_C21")],
+                 max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$abduction_adduction_C22)), which(colnames(max_rs[[6]]) == "abduction_adduction_C22")],
+                 max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$abduction_adduction_C23)), which(colnames(max_rs[[6]]) == "abduction_adduction_C23")],
+                 max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$abduction_adduction_C24)), which(colnames(max_rs[[6]]) == "abduction_adduction_C24")],
+                 max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$abduction_adduction_C25)), which(colnames(max_rs[[6]]) == "abduction_adduction_C25")]),
+  
+  oROM_max_z = c(max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$protraction_retraction_C19)), which(colnames(max_rs[[6]]) == "protraction_retraction_C19")],
+                 max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$protraction_retraction_C20)), which(colnames(max_rs[[6]]) == "protraction_retraction_C20")],
+                 max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$protraction_retraction_C21)), which(colnames(max_rs[[6]]) == "protraction_retraction_C21")],
+                 max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$protraction_retraction_C22)), which(colnames(max_rs[[6]]) == "protraction_retraction_C22")],
+                 max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$protraction_retraction_C23)), which(colnames(max_rs[[6]]) == "protraction_retraction_C23")],
+                 max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$protraction_retraction_C24)), which(colnames(max_rs[[6]]) == "protraction_retraction_C24")],
+                 max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$protraction_retraction_C25)), which(colnames(max_rs[[6]]) == "protraction_retraction_C25")]),
+  
+  oROM_real_x = c(real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$axial_rotation_C19)), which(colnames(real_rs[[6]]) == "axial_rotation_C19")],
+                  real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$axial_rotation_C20)), which(colnames(real_rs[[6]]) == "axial_rotation_C20")],
+                  real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$axial_rotation_C21)), which(colnames(real_rs[[6]]) == "axial_rotation_C21")],
+                  real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$axial_rotation_C22)), which(colnames(real_rs[[6]]) == "axial_rotation_C22")],
+                  real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$axial_rotation_C23)), which(colnames(real_rs[[6]]) == "axial_rotation_C23")],
+                  real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$axial_rotation_C24)), which(colnames(real_rs[[6]]) == "axial_rotation_C24")],
+                  real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$axial_rotation_C25)), which(colnames(real_rs[[6]]) == "axial_rotation_C25")]),
+  
+  oROM_real_y = c(real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$abduction_adduction_C19)), which(colnames(real_rs[[6]]) == "abduction_adduction_C19")],
+                  real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$abduction_adduction_C20)), which(colnames(real_rs[[6]]) == "abduction_adduction_C20")],
+                  real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$abduction_adduction_C21)), which(colnames(real_rs[[6]]) == "abduction_adduction_C21")],
+                  real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$abduction_adduction_C22)), which(colnames(real_rs[[6]]) == "abduction_adduction_C22")],
+                  real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$abduction_adduction_C23)), which(colnames(real_rs[[6]]) == "abduction_adduction_C23")],
+                  real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$abduction_adduction_C24)), which(colnames(real_rs[[6]]) == "abduction_adduction_C24")],
+                  real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$abduction_adduction_C25)), which(colnames(real_rs[[6]]) == "abduction_adduction_C25")]),
+  
+  oROM_real_z = c(real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$protraction_retraction_C19)), which(colnames(real_rs[[6]]) == "protraction_retraction_C19")],
+                  real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$protraction_retraction_C20)), which(colnames(real_rs[[6]]) == "protraction_retraction_C20")],
+                  real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$protraction_retraction_C21)), which(colnames(real_rs[[6]]) == "protraction_retraction_C21")],
+                  real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$protraction_retraction_C22)), which(colnames(real_rs[[6]]) == "protraction_retraction_C22")],
+                  real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$protraction_retraction_C23)), which(colnames(real_rs[[6]]) == "protraction_retraction_C23")],
+                  real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$protraction_retraction_C24)), which(colnames(real_rs[[6]]) == "protraction_retraction_C24")],
+                  real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$protraction_retraction_C25)), which(colnames(real_rs[[6]]) == "protraction_retraction_C25")]))
+
+
+# r version  
+cj_r_CBP_bar_data <- data.frame(
+  jnt = c("C19", "C20", "C21", "C22", "C23", "C24", "C25"),
+  oROM_max_x = c(max_r[[6]][which.max(abs(max_r$CBP_um_max_r$axial_rotation_C19)), which(colnames(max_r[[6]]) == "axial_rotation_C19")],
+                 max_r[[6]][which.max(abs(max_r$CBP_um_max_r$axial_rotation_C20)), which(colnames(max_r[[6]]) == "axial_rotation_C20")],
+                 max_r[[6]][which.max(abs(max_r$CBP_um_max_r$axial_rotation_C21)), which(colnames(max_r[[6]]) == "axial_rotation_C21")],
+                 max_r[[6]][which.max(abs(max_r$CBP_um_max_r$axial_rotation_C22)), which(colnames(max_r[[6]]) == "axial_rotation_C22")],
+                 max_r[[6]][which.max(abs(max_r$CBP_um_max_r$axial_rotation_C23)), which(colnames(max_r[[6]]) == "axial_rotation_C23")],
+                 max_r[[6]][which.max(abs(max_r$CBP_um_max_r$axial_rotation_C24)), which(colnames(max_r[[6]]) == "axial_rotation_C24")],
+                 max_r[[6]][which.max(abs(max_r$CBP_um_max_r$axial_rotation_C25)), which(colnames(max_r[[6]]) == "axial_rotation_C25")]),
+  
+  oROM_max_y = c(max_r[[6]][which.max(abs(max_r$CBP_um_max_r$abduction_adduction_C19)), which(colnames(max_r[[6]]) == "abduction_adduction_C19")],
+                 max_r[[6]][which.max(abs(max_r$CBP_um_max_r$abduction_adduction_C20)), which(colnames(max_r[[6]]) == "abduction_adduction_C20")],
+                 max_r[[6]][which.max(abs(max_r$CBP_um_max_r$abduction_adduction_C21)), which(colnames(max_r[[6]]) == "abduction_adduction_C21")],
+                 max_r[[6]][which.max(abs(max_r$CBP_um_max_r$abduction_adduction_C22)), which(colnames(max_r[[6]]) == "abduction_adduction_C22")],
+                 max_r[[6]][which.max(abs(max_r$CBP_um_max_r$abduction_adduction_C23)), which(colnames(max_r[[6]]) == "abduction_adduction_C23")],
+                 max_r[[6]][which.max(abs(max_r$CBP_um_max_r$abduction_adduction_C24)), which(colnames(max_r[[6]]) == "abduction_adduction_C24")],
+                 max_r[[6]][which.max(abs(max_r$CBP_um_max_r$abduction_adduction_C25)), which(colnames(max_r[[6]]) == "abduction_adduction_C25")]),
+  
+  oROM_max_z = c(max_r[[6]][which.max(abs(max_r$CBP_um_max_r$protraction_retraction_C19)), which(colnames(max_r[[6]]) == "protraction_retraction_C19")],
+                 max_r[[6]][which.max(abs(max_r$CBP_um_max_r$protraction_retraction_C20)), which(colnames(max_r[[6]]) == "protraction_retraction_C20")],
+                 max_r[[6]][which.max(abs(max_r$CBP_um_max_r$protraction_retraction_C21)), which(colnames(max_r[[6]]) == "protraction_retraction_C21")],
+                 max_r[[6]][which.max(abs(max_r$CBP_um_max_r$protraction_retraction_C22)), which(colnames(max_r[[6]]) == "protraction_retraction_C22")],
+                 max_r[[6]][which.max(abs(max_r$CBP_um_max_r$protraction_retraction_C23)), which(colnames(max_r[[6]]) == "protraction_retraction_C23")],
+                 max_r[[6]][which.max(abs(max_r$CBP_um_max_r$protraction_retraction_C24)), which(colnames(max_r[[6]]) == "protraction_retraction_C24")],
+                 max_r[[6]][which.max(abs(max_r$CBP_um_max_r$protraction_retraction_C25)), which(colnames(max_r[[6]]) == "protraction_retraction_C25")]),
+  
+  oROM_real_x = c(real_r[[6]][which.max(abs(real_r$CBP_um_real_r$axial_rotation_C19)), which(colnames(real_r[[6]]) == "axial_rotation_C19")],
+                  real_r[[6]][which.max(abs(real_r$CBP_um_real_r$axial_rotation_C20)), which(colnames(real_r[[6]]) == "axial_rotation_C20")],
+                  real_r[[6]][which.max(abs(real_r$CBP_um_real_r$axial_rotation_C21)), which(colnames(real_r[[6]]) == "axial_rotation_C21")],
+                  real_r[[6]][which.max(abs(real_r$CBP_um_real_r$axial_rotation_C22)), which(colnames(real_r[[6]]) == "axial_rotation_C22")],
+                  real_r[[6]][which.max(abs(real_r$CBP_um_real_r$axial_rotation_C23)), which(colnames(real_r[[6]]) == "axial_rotation_C23")],
+                  real_r[[6]][which.max(abs(real_r$CBP_um_real_r$axial_rotation_C24)), which(colnames(real_r[[6]]) == "axial_rotation_C24")],
+                  real_r[[6]][which.max(abs(real_r$CBP_um_real_r$axial_rotation_C25)), which(colnames(real_r[[6]]) == "axial_rotation_C25")]),
+  
+  oROM_real_y = c(real_r[[6]][which.max(abs(real_r$CBP_um_real_r$abduction_adduction_C19)), which(colnames(real_r[[6]]) == "abduction_adduction_C19")],
+                  real_r[[6]][which.max(abs(real_r$CBP_um_real_r$abduction_adduction_C20)), which(colnames(real_r[[6]]) == "abduction_adduction_C20")],
+                  real_r[[6]][which.max(abs(real_r$CBP_um_real_r$abduction_adduction_C21)), which(colnames(real_r[[6]]) == "abduction_adduction_C21")],
+                  real_r[[6]][which.max(abs(real_r$CBP_um_real_r$abduction_adduction_C22)), which(colnames(real_r[[6]]) == "abduction_adduction_C22")],
+                  real_r[[6]][which.max(abs(real_r$CBP_um_real_r$abduction_adduction_C23)), which(colnames(real_r[[6]]) == "abduction_adduction_C23")],
+                  real_r[[6]][which.max(abs(real_r$CBP_um_real_r$abduction_adduction_C24)), which(colnames(real_r[[6]]) == "abduction_adduction_C24")],
+                  real_r[[6]][which.max(abs(real_r$CBP_um_real_r$abduction_adduction_C25)), which(colnames(real_r[[6]]) == "abduction_adduction_C25")]),
+  
+  oROM_real_z = c(real_r[[6]][which.max(abs(real_r$CBP_um_real_r$protraction_retraction_C19)), which(colnames(real_r[[6]]) == "protraction_retraction_C19")],
+                  real_r[[6]][which.max(abs(real_r$CBP_um_real_r$protraction_retraction_C20)), which(colnames(real_r[[6]]) == "protraction_retraction_C20")],
+                  real_r[[6]][which.max(abs(real_r$CBP_um_real_r$protraction_retraction_C21)), which(colnames(real_r[[6]]) == "protraction_retraction_C21")],
+                  real_r[[6]][which.max(abs(real_r$CBP_um_real_r$protraction_retraction_C22)), which(colnames(real_r[[6]]) == "protraction_retraction_C22")],
+                  real_r[[6]][which.max(abs(real_r$CBP_um_real_r$protraction_retraction_C23)), which(colnames(real_r[[6]]) == "protraction_retraction_C23")],
+                  real_r[[6]][which.max(abs(real_r$CBP_um_real_r$protraction_retraction_C24)), which(colnames(real_r[[6]]) == "protraction_retraction_C24")],
+                  real_r[[6]][which.max(abs(real_r$CBP_um_real_r$protraction_retraction_C25)), which(colnames(real_r[[6]]) == "protraction_retraction_C25")]))  
+
+
+# make bar plots
+# vrs version
+# costal joints
+x_AB_bar <- ggplot() +
+  geom_bar(data = cj_vrs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x), stat = "identity", fill = "#FF4C00", alpha = .3) +
+  geom_text(data = cj_vrs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x, label = oROM_max_x), vjust = ifelse(cj_vrs_AB_bar_data$oROM_max_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = cj_vrs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x), stat = "identity", fill = "#FF4C00", alpha = .6) +
+  geom_text(data = cj_vrs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x, label = oROM_real_x), vjust = ifelse(cj_vrs_AB_bar_data$oROM_real_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+x_AJ_bar <- ggplot() +
+  geom_bar(data = cj_vrs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x), stat = "identity", fill = "#E7B10A", alpha = .3) +
+  geom_text(data = cj_vrs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x, label = oROM_max_x), vjust = ifelse(cj_vrs_AJ_bar_data$oROM_max_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = cj_vrs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x), stat = "identity", fill = "#E7B10A", alpha = .6) +
+  geom_text(data = cj_vrs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x, label = oROM_real_x), vjust = ifelse(cj_vrs_AJ_bar_data$oROM_real_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+x_CBP_bar <- ggplot() +
+  geom_bar(data = cj_vrs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x), stat = "identity", fill = "#041E42", alpha = .3) +
+  geom_text(data = cj_vrs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x, label = oROM_max_x), vjust = ifelse(cj_vrs_CBP_bar_data$oROM_max_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = cj_vrs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x), stat = "identity", fill = "#041E42", alpha = .6) +
+  geom_text(data = cj_vrs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x, label = oROM_real_x), vjust = ifelse(cj_vrs_CBP_bar_data$oROM_real_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+y_AB_bar <- ggplot() +
+  geom_bar(data = cj_vrs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y), stat = "identity", fill = "#FF4C00", alpha = .3) +
+  geom_text(data = cj_vrs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y, label = oROM_max_y), vjust = ifelse(cj_vrs_AB_bar_data$oROM_max_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = cj_vrs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y), stat = "identity", fill = "#FF4C00", alpha = .6) +
+  geom_text(data = cj_vrs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y, label = oROM_real_y), vjust = ifelse(cj_vrs_AB_bar_data$oROM_real_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+y_AJ_bar <- ggplot() +
+  geom_bar(data = cj_vrs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y), stat = "identity", fill = "#E7B10A", alpha = .3) +
+  geom_text(data = cj_vrs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y, label = oROM_max_y), vjust = ifelse(cj_vrs_AJ_bar_data$oROM_max_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = cj_vrs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y), stat = "identity", fill = "#E7B10A", alpha = .6) +
+  geom_text(data = cj_vrs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y, label = oROM_real_y), vjust = ifelse(cj_vrs_AJ_bar_data$oROM_real_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+y_CBP_bar <- ggplot() +
+  geom_bar(data = cj_vrs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y), stat = "identity", fill = "#041E42", alpha = .3) +
+  geom_text(data = cj_vrs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y, label = oROM_max_y), vjust = ifelse(cj_vrs_CBP_bar_data$oROM_max_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = cj_vrs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y), stat = "identity", fill = "#041E42", alpha = .6) +
+  geom_text(data = cj_vrs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y, label = oROM_real_y), vjust = ifelse(cj_vrs_CBP_bar_data$oROM_real_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+z_AB_bar <- ggplot() +
+  geom_bar(data = cj_vrs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z), stat = "identity", fill = "#FF4C00", alpha = .3) +
+  geom_text(data = cj_vrs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z, label = oROM_max_z), vjust = ifelse(cj_vrs_AB_bar_data$oROM_max_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = cj_vrs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z), stat = "identity", fill = "#FF4C00", alpha = .6) +
+  geom_text(data = cj_vrs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z, label = oROM_real_z), vjust = ifelse(cj_vrs_AB_bar_data$oROM_real_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+z_AJ_bar <- ggplot() +
+  geom_bar(data = cj_vrs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z), stat = "identity", fill = "#E7B10A", alpha = .3) +
+  geom_text(data = cj_vrs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z, label = oROM_max_z), vjust = ifelse(cj_vrs_AJ_bar_data$oROM_max_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = cj_vrs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z), stat = "identity", fill = "#E7B10A", alpha = .6) +
+  geom_text(data = cj_vrs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z, label = oROM_real_z), vjust = ifelse(cj_vrs_AJ_bar_data$oROM_real_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+z_CBP_bar <- ggplot() +
+  geom_bar(data = cj_vrs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z), stat = "identity", fill = "#041E42", alpha = .3) +
+  geom_text(data = cj_vrs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z, label = oROM_max_z), vjust = ifelse(cj_vrs_CBP_bar_data$oROM_max_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = cj_vrs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z), stat = "identity", fill = "#041E42", alpha = .6) +
+  geom_text(data = cj_vrs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z, label = oROM_real_z), vjust = ifelse(cj_vrs_CBP_bar_data$oROM_real_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+p <- ggarrange(x_AB_bar, x_AJ_bar, x_CBP_bar,
+               y_AB_bar, y_AJ_bar, y_CBP_bar,
+               z_AB_bar, z_AJ_bar, z_CBP_bar,
+               ncol = 3, nrow = 3,
+               labels = c("A", "B", "C",
+                          "D", "E", "F",
+                          "G", "H", "I"),
+               common.legend = TRUE, legend = "bottom")
+
+ggsave(plot = p, dpi = 600, bg = "white", 
+       filename = "bird_cos_vrs_bar.png", 
+       device = "png", width = 22, heigh = 28, units = "cm")
+
+
+# rs version
+x_AB_bar <- ggplot() +
+  geom_bar(data = cj_rs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x), stat = "identity", fill = "#FF4C00", alpha = .3) +
+  geom_text(data = cj_rs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x, label = oROM_max_x), vjust = ifelse(cj_rs_AB_bar_data$oROM_max_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = cj_rs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x), stat = "identity", fill = "#FF4C00", alpha = .6) +
+  geom_text(data = cj_rs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x, label = oROM_real_x), vjust = ifelse(cj_rs_AB_bar_data$oROM_real_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+x_AJ_bar <- ggplot() +
+  geom_bar(data = cj_rs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x), stat = "identity", fill = "#E7B10A", alpha = .3) +
+  geom_text(data = cj_rs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x, label = oROM_max_x), vjust = ifelse(cj_rs_AJ_bar_data$oROM_max_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = cj_rs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x), stat = "identity", fill = "#E7B10A", alpha = .6) +
+  geom_text(data = cj_rs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x, label = oROM_real_x), vjust = ifelse(cj_rs_AJ_bar_data$oROM_real_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+x_CBP_bar <- ggplot() +
+  geom_bar(data = cj_rs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x), stat = "identity", fill = "#041E42", alpha = .3) +
+  geom_text(data = cj_rs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x, label = oROM_max_x), vjust = ifelse(cj_rs_CBP_bar_data$oROM_max_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = cj_rs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x), stat = "identity", fill = "#041E42", alpha = .6) +
+  geom_text(data = cj_rs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x, label = oROM_real_x), vjust = ifelse(cj_rs_CBP_bar_data$oROM_real_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+y_AB_bar <- ggplot() +
+  geom_bar(data = cj_rs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y), stat = "identity", fill = "#FF4C00", alpha = .3) +
+  geom_text(data = cj_rs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y, label = oROM_max_y), vjust = ifelse(cj_rs_AB_bar_data$oROM_max_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = cj_rs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y), stat = "identity", fill = "#FF4C00", alpha = .6) +
+  geom_text(data = cj_rs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y, label = oROM_real_y), vjust = ifelse(cj_rs_AB_bar_data$oROM_real_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+y_AJ_bar <- ggplot() +
+  geom_bar(data = cj_rs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y), stat = "identity", fill = "#E7B10A", alpha = .3) +
+  geom_text(data = cj_rs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y, label = oROM_max_y), vjust = ifelse(cj_rs_AJ_bar_data$oROM_max_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = cj_rs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y), stat = "identity", fill = "#E7B10A", alpha = .6) +
+  geom_text(data = cj_rs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y, label = oROM_real_y), vjust = ifelse(cj_rs_AJ_bar_data$oROM_real_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+y_CBP_bar <- ggplot() +
+  geom_bar(data = cj_rs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y), stat = "identity", fill = "#041E42", alpha = .3) +
+  geom_text(data = cj_rs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y, label = oROM_max_y), vjust = ifelse(cj_rs_CBP_bar_data$oROM_max_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = cj_rs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y), stat = "identity", fill = "#041E42", alpha = .6) +
+  geom_text(data = cj_rs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y, label = oROM_real_y), vjust = ifelse(cj_rs_CBP_bar_data$oROM_real_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+z_AB_bar <- ggplot() +
+  geom_bar(data = cj_rs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z), stat = "identity", fill = "#FF4C00", alpha = .3) +
+  geom_text(data = cj_rs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z, label = oROM_max_z), vjust = ifelse(cj_rs_AB_bar_data$oROM_max_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = cj_rs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z), stat = "identity", fill = "#FF4C00", alpha = .6) +
+  geom_text(data = cj_rs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z, label = oROM_real_z), vjust = ifelse(cj_rs_AB_bar_data$oROM_real_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+z_AJ_bar <- ggplot() +
+  geom_bar(data = cj_rs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z), stat = "identity", fill = "#E7B10A", alpha = .3) +
+  geom_text(data = cj_rs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z, label = oROM_max_z), vjust = ifelse(cj_rs_AJ_bar_data$oROM_max_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = cj_rs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z), stat = "identity", fill = "#E7B10A", alpha = .6) +
+  geom_text(data = cj_rs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z, label = oROM_real_z), vjust = ifelse(cj_rs_AJ_bar_data$oROM_real_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+z_CBP_bar <- ggplot() +
+  geom_bar(data = cj_rs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z), stat = "identity", fill = "#041E42", alpha = .3) +
+  geom_text(data = cj_rs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z, label = oROM_max_z), vjust = ifelse(cj_rs_CBP_bar_data$oROM_max_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = cj_rs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z), stat = "identity", fill = "#041E42", alpha = .6) +
+  geom_text(data = cj_rs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z, label = oROM_real_z), vjust = ifelse(cj_rs_CBP_bar_data$oROM_real_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+p <- ggarrange(x_AB_bar, x_AJ_bar, x_CBP_bar,
+               y_AB_bar, y_AJ_bar, y_CBP_bar,
+               z_AB_bar, z_AJ_bar, z_CBP_bar,
+               ncol = 3, nrow = 3,
+               labels = c("A", "B", "C",
+                          "D", "E", "F",
+                          "G", "H", "I"),
+               common.legend = TRUE, legend = "bottom")
+
+ggsave(plot = p, dpi = 600, bg = "white", 
+       filename = "bird_cos_rs_bar.png", 
+       device = "png", width = 22, heigh = 28, units = "cm")
+
+
+# r version
+x_AB_bar <- ggplot() +
+  geom_bar(data = cj_r_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x), stat = "identity", fill = "#FF4C00", alpha = .3) +
+  geom_text(data = cj_r_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x, label = oROM_max_x), vjust = ifelse(cj_r_AB_bar_data$oROM_max_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = cj_r_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x), stat = "identity", fill = "#FF4C00", alpha = .6) +
+  geom_text(data = cj_r_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x, label = oROM_real_x), vjust = ifelse(cj_r_AB_bar_data$oROM_real_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+x_AJ_bar <- ggplot() +
+  geom_bar(data = cj_r_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x), stat = "identity", fill = "#E7B10A", alpha = .3) +
+  geom_text(data = cj_r_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x, label = oROM_max_x), vjust = ifelse(cj_r_AJ_bar_data$oROM_max_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = cj_r_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x), stat = "identity", fill = "#E7B10A", alpha = .6) +
+  geom_text(data = cj_r_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x, label = oROM_real_x), vjust = ifelse(cj_r_AJ_bar_data$oROM_real_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+x_CBP_bar <- ggplot() +
+  geom_bar(data = cj_r_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x), stat = "identity", fill = "#041E42", alpha = .3) +
+  geom_text(data = cj_r_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x, label = oROM_max_x), vjust = ifelse(cj_r_CBP_bar_data$oROM_max_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = cj_r_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x), stat = "identity", fill = "#041E42", alpha = .6) +
+  geom_text(data = cj_r_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x, label = oROM_real_x), vjust = ifelse(cj_r_CBP_bar_data$oROM_real_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+y_AB_bar <- ggplot() +
+  geom_bar(data = cj_r_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y), stat = "identity", fill = "#FF4C00", alpha = .3) +
+  geom_text(data = cj_r_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y, label = oROM_max_y), vjust = ifelse(cj_r_AB_bar_data$oROM_max_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = cj_r_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y), stat = "identity", fill = "#FF4C00", alpha = .6) +
+  geom_text(data = cj_r_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y, label = oROM_real_y), vjust = ifelse(cj_r_AB_bar_data$oROM_real_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+y_AJ_bar <- ggplot() +
+  geom_bar(data = cj_r_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y), stat = "identity", fill = "#E7B10A", alpha = .3) +
+  geom_text(data = cj_r_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y, label = oROM_max_y), vjust = ifelse(cj_r_AJ_bar_data$oROM_max_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = cj_r_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y), stat = "identity", fill = "#E7B10A", alpha = .6) +
+  geom_text(data = cj_r_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y, label = oROM_real_y), vjust = ifelse(cj_r_AJ_bar_data$oROM_real_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+y_CBP_bar <- ggplot() +
+  geom_bar(data = cj_r_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y), stat = "identity", fill = "#041E42", alpha = .3) +
+  geom_text(data = cj_r_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y, label = oROM_max_y), vjust = ifelse(cj_r_CBP_bar_data$oROM_max_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = cj_r_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y), stat = "identity", fill = "#041E42", alpha = .6) +
+  geom_text(data = cj_r_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y, label = oROM_real_y), vjust = ifelse(cj_r_CBP_bar_data$oROM_real_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+z_AB_bar <- ggplot() +
+  geom_bar(data = cj_r_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z), stat = "identity", fill = "#FF4C00", alpha = .3) +
+  geom_text(data = cj_r_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z, label = oROM_max_z), vjust = ifelse(cj_r_AB_bar_data$oROM_max_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = cj_r_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z), stat = "identity", fill = "#FF4C00", alpha = .6) +
+  geom_text(data = cj_r_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z, label = oROM_real_z), vjust = ifelse(cj_r_AB_bar_data$oROM_real_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+z_AJ_bar <- ggplot() +
+  geom_bar(data = cj_r_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z), stat = "identity", fill = "#E7B10A", alpha = .3) +
+  geom_text(data = cj_r_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z, label = oROM_max_z), vjust = ifelse(cj_r_AJ_bar_data$oROM_max_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = cj_r_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z), stat = "identity", fill = "#E7B10A", alpha = .6) +
+  geom_text(data = cj_r_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z, label = oROM_real_z), vjust = ifelse(cj_r_AJ_bar_data$oROM_real_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+z_CBP_bar <- ggplot() +
+  geom_bar(data = cj_r_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z), stat = "identity", fill = "#041E42", alpha = .3) +
+  geom_text(data = cj_r_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z, label = oROM_max_z), vjust = ifelse(cj_r_CBP_bar_data$oROM_max_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = cj_r_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z), stat = "identity", fill = "#041E42", alpha = .6) +
+  geom_text(data = cj_r_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z, label = oROM_real_z), vjust = ifelse(cj_r_CBP_bar_data$oROM_real_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+p <- ggarrange(x_AB_bar, x_AJ_bar, x_CBP_bar,
+               y_AB_bar, y_AJ_bar, y_CBP_bar,
+               z_AB_bar, z_AJ_bar, z_CBP_bar,
+               ncol = 3, nrow = 3,
+               labels = c("A", "B", "C",
+                          "D", "E", "F",
+                          "G", "H", "I"),
+               common.legend = TRUE, legend = "bottom")
+
+ggsave(plot = p, dpi = 600, bg = "white", 
+       filename = "bird_cos_r_bar.png", 
+       device = "png", width = 22, heigh = 28, units = "cm")
+
+
+
+# sternal rib joints
+# AB setup
+# vrs version
+ij_vrs_AB_bar_data <- data.frame(
+  jnt = c("IR21", "IR22", "IR23", "IR24", "IR25"),
+  oROM_max_x = c(max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$axial_rotation_SR21)), which(colnames(max_vrs[[2]]) == "axial_rotation_SR21")],
+                 max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$axial_rotation_SR22)), which(colnames(max_vrs[[2]]) == "axial_rotation_SR22")],
+                 max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$axial_rotation_SR23)), which(colnames(max_vrs[[2]]) == "axial_rotation_SR23")],
+                 max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$axial_rotation_SR24)), which(colnames(max_vrs[[2]]) == "axial_rotation_SR24")],
+                 max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$axial_rotation_SR25)), which(colnames(max_vrs[[2]]) == "axial_rotation_SR25")]),
+  
+  oROM_max_y = c(max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$abduction_adduction_SR21)), which(colnames(max_vrs[[2]]) == "abduction_adduction_SR21")],
+                 max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$abduction_adduction_SR22)), which(colnames(max_vrs[[2]]) == "abduction_adduction_SR22")],
+                 max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$abduction_adduction_SR23)), which(colnames(max_vrs[[2]]) == "abduction_adduction_SR23")],
+                 max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$abduction_adduction_SR24)), which(colnames(max_vrs[[2]]) == "abduction_adduction_SR24")],
+                 max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$abduction_adduction_SR25)), which(colnames(max_vrs[[2]]) == "abduction_adduction_SR25")]),
+  
+  oROM_max_z = c(max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$protraction_retraction_SR21)), which(colnames(max_vrs[[2]]) == "protraction_retraction_SR21")],
+                 max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$protraction_retraction_SR22)), which(colnames(max_vrs[[2]]) == "protraction_retraction_SR22")],
+                 max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$protraction_retraction_SR23)), which(colnames(max_vrs[[2]]) == "protraction_retraction_SR23")],
+                 max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$protraction_retraction_SR24)), which(colnames(max_vrs[[2]]) == "protraction_retraction_SR24")],
+                 max_vrs[[2]][which.max(abs(max_vrs$AB_um_max_vrs$protraction_retraction_SR25)), which(colnames(max_vrs[[2]]) == "protraction_retraction_SR25")]),
+  
+  oROM_real_x = c(real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$axial_rotation_SR21)), which(colnames(real_vrs[[2]]) == "axial_rotation_SR21")],
+                  real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$axial_rotation_SR22)), which(colnames(real_vrs[[2]]) == "axial_rotation_SR22")],
+                  real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$axial_rotation_SR23)), which(colnames(real_vrs[[2]]) == "axial_rotation_SR23")],
+                  real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$axial_rotation_SR24)), which(colnames(real_vrs[[2]]) == "axial_rotation_SR24")],
+                  real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$axial_rotation_SR25)), which(colnames(real_vrs[[2]]) == "axial_rotation_SR25")]),
+  
+  oROM_real_y = c(real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$abduction_adduction_SR21)), which(colnames(real_vrs[[2]]) == "abduction_adduction_SR21")],
+                  real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$abduction_adduction_SR22)), which(colnames(real_vrs[[2]]) == "abduction_adduction_SR22")],
+                  real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$abduction_adduction_SR23)), which(colnames(real_vrs[[2]]) == "abduction_adduction_SR23")],
+                  real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$abduction_adduction_SR24)), which(colnames(real_vrs[[2]]) == "abduction_adduction_SR24")],
+                  real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$abduction_adduction_SR25)), which(colnames(real_vrs[[2]]) == "abduction_adduction_SR25")]),
+  
+  oROM_real_z = c(real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$protraction_retraction_SR21)), which(colnames(real_vrs[[2]]) == "protraction_retraction_SR21")],
+                  real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$protraction_retraction_SR22)), which(colnames(real_vrs[[2]]) == "protraction_retraction_SR22")],
+                  real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$protraction_retraction_SR23)), which(colnames(real_vrs[[2]]) == "protraction_retraction_SR23")],
+                  real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$protraction_retraction_SR24)), which(colnames(real_vrs[[2]]) == "protraction_retraction_SR24")],
+                  real_vrs[[2]][which.max(abs(real_vrs$AB_um_real_vrs$protraction_retraction_SR25)), which(colnames(real_vrs[[2]]) == "protraction_retraction_SR25")]))
+
+
+# rs version
+ij_rs_AB_bar_data <- data.frame(
+  jnt = c("IR21", "IR22", "IR23", "IR24", "IR25"),
+  oROM_max_x = c(max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$axial_rotation_SR21)), which(colnames(max_rs[[2]]) == "axial_rotation_SR21")],
+                 max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$axial_rotation_SR22)), which(colnames(max_rs[[2]]) == "axial_rotation_SR22")],
+                 max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$axial_rotation_SR23)), which(colnames(max_rs[[2]]) == "axial_rotation_SR23")],
+                 max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$axial_rotation_SR24)), which(colnames(max_rs[[2]]) == "axial_rotation_SR24")],
+                 max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$axial_rotation_SR25)), which(colnames(max_rs[[2]]) == "axial_rotation_SR25")]),
+  
+  oROM_max_y = c(max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$abduction_adduction_SR21)), which(colnames(max_rs[[2]]) == "abduction_adduction_SR21")],
+                 max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$abduction_adduction_SR22)), which(colnames(max_rs[[2]]) == "abduction_adduction_SR22")],
+                 max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$abduction_adduction_SR23)), which(colnames(max_rs[[2]]) == "abduction_adduction_SR23")],
+                 max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$abduction_adduction_SR24)), which(colnames(max_rs[[2]]) == "abduction_adduction_SR24")],
+                 max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$abduction_adduction_SR25)), which(colnames(max_rs[[2]]) == "abduction_adduction_SR25")]),
+  
+  oROM_max_z = c(max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$protraction_retraction_SR21)), which(colnames(max_rs[[2]]) == "protraction_retraction_SR21")],
+                 max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$protraction_retraction_SR22)), which(colnames(max_rs[[2]]) == "protraction_retraction_SR22")],
+                 max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$protraction_retraction_SR23)), which(colnames(max_rs[[2]]) == "protraction_retraction_SR23")],
+                 max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$protraction_retraction_SR24)), which(colnames(max_rs[[2]]) == "protraction_retraction_SR24")],
+                 max_rs[[2]][which.max(abs(max_rs$AB_um_max_rs$protraction_retraction_SR25)), which(colnames(max_rs[[2]]) == "protraction_retraction_SR25")]),
+  
+  oROM_real_x = c(real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$axial_rotation_SR21)), which(colnames(real_rs[[2]]) == "axial_rotation_SR21")],
+                  real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$axial_rotation_SR22)), which(colnames(real_rs[[2]]) == "axial_rotation_SR22")],
+                  real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$axial_rotation_SR23)), which(colnames(real_rs[[2]]) == "axial_rotation_SR23")],
+                  real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$axial_rotation_SR24)), which(colnames(real_rs[[2]]) == "axial_rotation_SR24")],
+                  real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$axial_rotation_SR25)), which(colnames(real_rs[[2]]) == "axial_rotation_SR25")]),
+  
+  oROM_real_y = c(real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$abduction_adduction_SR21)), which(colnames(real_rs[[2]]) == "abduction_adduction_SR21")],
+                  real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$abduction_adduction_SR22)), which(colnames(real_rs[[2]]) == "abduction_adduction_SR22")],
+                  real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$abduction_adduction_SR23)), which(colnames(real_rs[[2]]) == "abduction_adduction_SR23")],
+                  real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$abduction_adduction_SR24)), which(colnames(real_rs[[2]]) == "abduction_adduction_SR24")],
+                  real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$abduction_adduction_SR25)), which(colnames(real_rs[[2]]) == "abduction_adduction_SR25")]),
+  
+  oROM_real_z = c(real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$protraction_retraction_SR21)), which(colnames(real_rs[[2]]) == "protraction_retraction_SR21")],
+                  real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$protraction_retraction_SR22)), which(colnames(real_rs[[2]]) == "protraction_retraction_SR22")],
+                  real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$protraction_retraction_SR23)), which(colnames(real_rs[[2]]) == "protraction_retraction_SR23")],
+                  real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$protraction_retraction_SR24)), which(colnames(real_rs[[2]]) == "protraction_retraction_SR24")],
+                  real_rs[[2]][which.max(abs(real_rs$AB_um_real_rs$protraction_retraction_SR25)), which(colnames(real_rs[[2]]) == "protraction_retraction_SR25")]))
+
+
+# r version  
+ij_r_AB_bar_data <- data.frame(
+  jnt = c("IR21", "IR22", "IR23", "IR24", "IR25"),
+  oROM_max_x = c(max_r[[2]][which.max(abs(max_r$AB_um_max_r$axial_rotation_SR21)), which(colnames(max_r[[2]]) == "axial_rotation_SR21")],
+                 max_r[[2]][which.max(abs(max_r$AB_um_max_r$axial_rotation_SR22)), which(colnames(max_r[[2]]) == "axial_rotation_SR22")],
+                 max_r[[2]][which.max(abs(max_r$AB_um_max_r$axial_rotation_SR23)), which(colnames(max_r[[2]]) == "axial_rotation_SR23")],
+                 max_r[[2]][which.max(abs(max_r$AB_um_max_r$axial_rotation_SR24)), which(colnames(max_r[[2]]) == "axial_rotation_SR24")],
+                 max_r[[2]][which.max(abs(max_r$AB_um_max_r$axial_rotation_SR25)), which(colnames(max_r[[2]]) == "axial_rotation_SR25")]),
+  
+  oROM_max_y = c(max_r[[2]][which.max(abs(max_r$AB_um_max_r$abduction_adduction_SR21)), which(colnames(max_r[[2]]) == "abduction_adduction_SR21")],
+                 max_r[[2]][which.max(abs(max_r$AB_um_max_r$abduction_adduction_SR22)), which(colnames(max_r[[2]]) == "abduction_adduction_SR22")],
+                 max_r[[2]][which.max(abs(max_r$AB_um_max_r$abduction_adduction_SR23)), which(colnames(max_r[[2]]) == "abduction_adduction_SR23")],
+                 max_r[[2]][which.max(abs(max_r$AB_um_max_r$abduction_adduction_SR24)), which(colnames(max_r[[2]]) == "abduction_adduction_SR24")],
+                 max_r[[2]][which.max(abs(max_r$AB_um_max_r$abduction_adduction_SR25)), which(colnames(max_r[[2]]) == "abduction_adduction_SR25")]),
+  
+  oROM_max_z = c(max_r[[2]][which.max(abs(max_r$AB_um_max_r$protraction_retraction_SR21)), which(colnames(max_r[[2]]) == "protraction_retraction_SR21")],
+                 max_r[[2]][which.max(abs(max_r$AB_um_max_r$protraction_retraction_SR22)), which(colnames(max_r[[2]]) == "protraction_retraction_SR22")],
+                 max_r[[2]][which.max(abs(max_r$AB_um_max_r$protraction_retraction_SR23)), which(colnames(max_r[[2]]) == "protraction_retraction_SR23")],
+                 max_r[[2]][which.max(abs(max_r$AB_um_max_r$protraction_retraction_SR24)), which(colnames(max_r[[2]]) == "protraction_retraction_SR24")],
+                 max_r[[2]][which.max(abs(max_r$AB_um_max_r$protraction_retraction_SR25)), which(colnames(max_r[[2]]) == "protraction_retraction_SR25")]),
+  
+  oROM_real_x = c(real_r[[2]][which.max(abs(real_r$AB_um_real_r$axial_rotation_SR21)), which(colnames(real_r[[2]]) == "axial_rotation_SR21")],
+                  real_r[[2]][which.max(abs(real_r$AB_um_real_r$axial_rotation_SR22)), which(colnames(real_r[[2]]) == "axial_rotation_SR22")],
+                  real_r[[2]][which.max(abs(real_r$AB_um_real_r$axial_rotation_SR23)), which(colnames(real_r[[2]]) == "axial_rotation_SR23")],
+                  real_r[[2]][which.max(abs(real_r$AB_um_real_r$axial_rotation_SR24)), which(colnames(real_r[[2]]) == "axial_rotation_SR24")],
+                  real_r[[2]][which.max(abs(real_r$AB_um_real_r$axial_rotation_SR25)), which(colnames(real_r[[2]]) == "axial_rotation_SR25")]),
+  
+  oROM_real_y = c(real_r[[2]][which.max(abs(real_r$AB_um_real_r$abduction_adduction_SR21)), which(colnames(real_r[[2]]) == "abduction_adduction_SR21")],
+                  real_r[[2]][which.max(abs(real_r$AB_um_real_r$abduction_adduction_SR22)), which(colnames(real_r[[2]]) == "abduction_adduction_SR22")],
+                  real_r[[2]][which.max(abs(real_r$AB_um_real_r$abduction_adduction_SR23)), which(colnames(real_r[[2]]) == "abduction_adduction_SR23")],
+                  real_r[[2]][which.max(abs(real_r$AB_um_real_r$abduction_adduction_SR24)), which(colnames(real_r[[2]]) == "abduction_adduction_SR24")],
+                  real_r[[2]][which.max(abs(real_r$AB_um_real_r$abduction_adduction_SR25)), which(colnames(real_r[[2]]) == "abduction_adduction_SR25")]),
+  
+  oROM_real_z = c(real_r[[2]][which.max(abs(real_r$AB_um_real_r$protraction_retraction_SR21)), which(colnames(real_r[[2]]) == "protraction_retraction_SR21")],
+                  real_r[[2]][which.max(abs(real_r$AB_um_real_r$protraction_retraction_SR22)), which(colnames(real_r[[2]]) == "protraction_retraction_SR22")],
+                  real_r[[2]][which.max(abs(real_r$AB_um_real_r$protraction_retraction_SR23)), which(colnames(real_r[[2]]) == "protraction_retraction_SR23")],
+                  real_r[[2]][which.max(abs(real_r$AB_um_real_r$protraction_retraction_SR24)), which(colnames(real_r[[2]]) == "protraction_retraction_SR24")],
+                  real_r[[2]][which.max(abs(real_r$AB_um_real_r$protraction_retraction_SR25)), which(colnames(real_r[[2]]) == "protraction_retraction_SR25")]))  
+
+
+# AJ setup
+# vrs version
+ij_vrs_AJ_bar_data <- data.frame(
+  jnt = c("IR21", "IR22", "IR23", "IR24", "IR25"),
+  oROM_max_x = c(max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$axial_rotation_SR21)), which(colnames(max_vrs[[4]]) == "axial_rotation_SR21")],
+                 max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$axial_rotation_SR22)), which(colnames(max_vrs[[4]]) == "axial_rotation_SR22")],
+                 max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$axial_rotation_SR23)), which(colnames(max_vrs[[4]]) == "axial_rotation_SR23")],
+                 max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$axial_rotation_SR24)), which(colnames(max_vrs[[4]]) == "axial_rotation_SR24")],
+                 max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$axial_rotation_SR25)), which(colnames(max_vrs[[4]]) == "axial_rotation_SR25")]),
+  
+  oROM_max_y = c(max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$abduction_adduction_SR21)), which(colnames(max_vrs[[4]]) == "abduction_adduction_SR21")],
+                 max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$abduction_adduction_SR22)), which(colnames(max_vrs[[4]]) == "abduction_adduction_SR22")],
+                 max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$abduction_adduction_SR23)), which(colnames(max_vrs[[4]]) == "abduction_adduction_SR23")],
+                 max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$abduction_adduction_SR24)), which(colnames(max_vrs[[4]]) == "abduction_adduction_SR24")],
+                 max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$abduction_adduction_SR25)), which(colnames(max_vrs[[4]]) == "abduction_adduction_SR25")]),
+  
+  oROM_max_z = c(max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$protraction_retraction_SR21)), which(colnames(max_vrs[[4]]) == "protraction_retraction_SR21")],
+                 max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$protraction_retraction_SR22)), which(colnames(max_vrs[[4]]) == "protraction_retraction_SR22")],
+                 max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$protraction_retraction_SR23)), which(colnames(max_vrs[[4]]) == "protraction_retraction_SR23")],
+                 max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$protraction_retraction_SR24)), which(colnames(max_vrs[[4]]) == "protraction_retraction_SR24")],
+                 max_vrs[[4]][which.max(abs(max_vrs$AJ_um_max_vrs$protraction_retraction_SR25)), which(colnames(max_vrs[[4]]) == "protraction_retraction_SR25")]),
+  
+  oROM_real_x = c(real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$axial_rotation_SR21)), which(colnames(real_vrs[[4]]) == "axial_rotation_SR21")],
+                  real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$axial_rotation_SR22)), which(colnames(real_vrs[[4]]) == "axial_rotation_SR22")],
+                  real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$axial_rotation_SR23)), which(colnames(real_vrs[[4]]) == "axial_rotation_SR23")],
+                  real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$axial_rotation_SR24)), which(colnames(real_vrs[[4]]) == "axial_rotation_SR24")],
+                  real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$axial_rotation_SR25)), which(colnames(real_vrs[[4]]) == "axial_rotation_SR25")]),
+  
+  oROM_real_y = c(real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$abduction_adduction_SR21)), which(colnames(real_vrs[[4]]) == "abduction_adduction_SR21")],
+                  real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$abduction_adduction_SR22)), which(colnames(real_vrs[[4]]) == "abduction_adduction_SR22")],
+                  real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$abduction_adduction_SR23)), which(colnames(real_vrs[[4]]) == "abduction_adduction_SR23")],
+                  real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$abduction_adduction_SR24)), which(colnames(real_vrs[[4]]) == "abduction_adduction_SR24")],
+                  real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$abduction_adduction_SR25)), which(colnames(real_vrs[[4]]) == "abduction_adduction_SR25")]),
+  
+  oROM_real_z = c(real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$protraction_retraction_SR21)), which(colnames(real_vrs[[4]]) == "protraction_retraction_SR21")],
+                  real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$protraction_retraction_SR22)), which(colnames(real_vrs[[4]]) == "protraction_retraction_SR22")],
+                  real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$protraction_retraction_SR23)), which(colnames(real_vrs[[4]]) == "protraction_retraction_SR23")],
+                  real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$protraction_retraction_SR24)), which(colnames(real_vrs[[4]]) == "protraction_retraction_SR24")],
+                  real_vrs[[4]][which.max(abs(real_vrs$AJ_um_real_vrs$protraction_retraction_SR25)), which(colnames(real_vrs[[4]]) == "protraction_retraction_SR25")]))
+
+
+# rs version
+ij_rs_AJ_bar_data <- data.frame(
+  jnt = c("IR21", "IR22", "IR23", "IR24", "IR25"),
+  oROM_max_x = c(max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$axial_rotation_SR21)), which(colnames(max_rs[[4]]) == "axial_rotation_SR21")],
+                 max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$axial_rotation_SR22)), which(colnames(max_rs[[4]]) == "axial_rotation_SR22")],
+                 max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$axial_rotation_SR23)), which(colnames(max_rs[[4]]) == "axial_rotation_SR23")],
+                 max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$axial_rotation_SR24)), which(colnames(max_rs[[4]]) == "axial_rotation_SR24")],
+                 max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$axial_rotation_SR25)), which(colnames(max_rs[[4]]) == "axial_rotation_SR25")]),
+  
+  oROM_max_y = c(max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$abduction_adduction_SR21)), which(colnames(max_rs[[4]]) == "abduction_adduction_SR21")],
+                 max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$abduction_adduction_SR22)), which(colnames(max_rs[[4]]) == "abduction_adduction_SR22")],
+                 max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$abduction_adduction_SR23)), which(colnames(max_rs[[4]]) == "abduction_adduction_SR23")],
+                 max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$abduction_adduction_SR24)), which(colnames(max_rs[[4]]) == "abduction_adduction_SR24")],
+                 max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$abduction_adduction_SR25)), which(colnames(max_rs[[4]]) == "abduction_adduction_SR25")]),
+  
+  oROM_max_z = c(max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$protraction_retraction_SR21)), which(colnames(max_rs[[4]]) == "protraction_retraction_SR21")],
+                 max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$protraction_retraction_SR22)), which(colnames(max_rs[[4]]) == "protraction_retraction_SR22")],
+                 max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$protraction_retraction_SR23)), which(colnames(max_rs[[4]]) == "protraction_retraction_SR23")],
+                 max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$protraction_retraction_SR24)), which(colnames(max_rs[[4]]) == "protraction_retraction_SR24")],
+                 max_rs[[4]][which.max(abs(max_rs$AJ_um_max_rs$protraction_retraction_SR25)), which(colnames(max_rs[[4]]) == "protraction_retraction_SR25")]),
+  
+  oROM_real_x = c(real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$axial_rotation_SR21)), which(colnames(real_rs[[4]]) == "axial_rotation_SR21")],
+                  real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$axial_rotation_SR22)), which(colnames(real_rs[[4]]) == "axial_rotation_SR22")],
+                  real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$axial_rotation_SR23)), which(colnames(real_rs[[4]]) == "axial_rotation_SR23")],
+                  real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$axial_rotation_SR24)), which(colnames(real_rs[[4]]) == "axial_rotation_SR24")],
+                  real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$axial_rotation_SR25)), which(colnames(real_rs[[4]]) == "axial_rotation_SR25")]),
+  
+  oROM_real_y = c(real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$abduction_adduction_SR21)), which(colnames(real_rs[[4]]) == "abduction_adduction_SR21")],
+                  real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$abduction_adduction_SR22)), which(colnames(real_rs[[4]]) == "abduction_adduction_SR22")],
+                  real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$abduction_adduction_SR23)), which(colnames(real_rs[[4]]) == "abduction_adduction_SR23")],
+                  real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$abduction_adduction_SR24)), which(colnames(real_rs[[4]]) == "abduction_adduction_SR24")],
+                  real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$abduction_adduction_SR25)), which(colnames(real_rs[[4]]) == "abduction_adduction_SR25")]),
+  
+  oROM_real_z = c(real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$protraction_retraction_SR21)), which(colnames(real_rs[[4]]) == "protraction_retraction_SR21")],
+                  real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$protraction_retraction_SR22)), which(colnames(real_rs[[4]]) == "protraction_retraction_SR22")],
+                  real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$protraction_retraction_SR23)), which(colnames(real_rs[[4]]) == "protraction_retraction_SR23")],
+                  real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$protraction_retraction_SR24)), which(colnames(real_rs[[4]]) == "protraction_retraction_SR24")],
+                  real_rs[[4]][which.max(abs(real_rs$AJ_um_real_rs$protraction_retraction_SR25)), which(colnames(real_rs[[4]]) == "protraction_retraction_SR25")]))
+
+
+# r version  
+ij_r_AJ_bar_data <- data.frame(
+  jnt = c("IR21", "IR22", "IR23", "IR24", "IR25"),
+  oROM_max_x = c(max_r[[4]][which.max(abs(max_r$AJ_um_max_r$axial_rotation_SR21)), which(colnames(max_r[[4]]) == "axial_rotation_SR21")],
+                 max_r[[4]][which.max(abs(max_r$AJ_um_max_r$axial_rotation_SR22)), which(colnames(max_r[[4]]) == "axial_rotation_SR22")],
+                 max_r[[4]][which.max(abs(max_r$AJ_um_max_r$axial_rotation_SR23)), which(colnames(max_r[[4]]) == "axial_rotation_SR23")],
+                 max_r[[4]][which.max(abs(max_r$AJ_um_max_r$axial_rotation_SR24)), which(colnames(max_r[[4]]) == "axial_rotation_SR24")],
+                 max_r[[4]][which.max(abs(max_r$AJ_um_max_r$axial_rotation_SR25)), which(colnames(max_r[[4]]) == "axial_rotation_SR25")]),
+  
+  oROM_max_y = c(max_r[[4]][which.max(abs(max_r$AJ_um_max_r$abduction_adduction_SR21)), which(colnames(max_r[[4]]) == "abduction_adduction_SR21")],
+                 max_r[[4]][which.max(abs(max_r$AJ_um_max_r$abduction_adduction_SR22)), which(colnames(max_r[[4]]) == "abduction_adduction_SR22")],
+                 max_r[[4]][which.max(abs(max_r$AJ_um_max_r$abduction_adduction_SR23)), which(colnames(max_r[[4]]) == "abduction_adduction_SR23")],
+                 max_r[[4]][which.max(abs(max_r$AJ_um_max_r$abduction_adduction_SR24)), which(colnames(max_r[[4]]) == "abduction_adduction_SR24")],
+                 max_r[[4]][which.max(abs(max_r$AJ_um_max_r$abduction_adduction_SR25)), which(colnames(max_r[[4]]) == "abduction_adduction_SR25")]),
+  
+  oROM_max_z = c(max_r[[4]][which.max(abs(max_r$AJ_um_max_r$protraction_retraction_SR21)), which(colnames(max_r[[4]]) == "protraction_retraction_SR21")],
+                 max_r[[4]][which.max(abs(max_r$AJ_um_max_r$protraction_retraction_SR22)), which(colnames(max_r[[4]]) == "protraction_retraction_SR22")],
+                 max_r[[4]][which.max(abs(max_r$AJ_um_max_r$protraction_retraction_SR23)), which(colnames(max_r[[4]]) == "protraction_retraction_SR23")],
+                 max_r[[4]][which.max(abs(max_r$AJ_um_max_r$protraction_retraction_SR24)), which(colnames(max_r[[4]]) == "protraction_retraction_SR24")],
+                 max_r[[4]][which.max(abs(max_r$AJ_um_max_r$protraction_retraction_SR25)), which(colnames(max_r[[4]]) == "protraction_retraction_SR25")]),
+  
+  oROM_real_x = c(real_r[[4]][which.max(abs(real_r$AJ_um_real_r$axial_rotation_SR21)), which(colnames(real_r[[4]]) == "axial_rotation_SR21")],
+                  real_r[[4]][which.max(abs(real_r$AJ_um_real_r$axial_rotation_SR22)), which(colnames(real_r[[4]]) == "axial_rotation_SR22")],
+                  real_r[[4]][which.max(abs(real_r$AJ_um_real_r$axial_rotation_SR23)), which(colnames(real_r[[4]]) == "axial_rotation_SR23")],
+                  real_r[[4]][which.max(abs(real_r$AJ_um_real_r$axial_rotation_SR24)), which(colnames(real_r[[4]]) == "axial_rotation_SR24")],
+                  real_r[[4]][which.max(abs(real_r$AJ_um_real_r$axial_rotation_SR25)), which(colnames(real_r[[4]]) == "axial_rotation_SR25")]),
+  
+  oROM_real_y = c(real_r[[4]][which.max(abs(real_r$AJ_um_real_r$abduction_adduction_SR21)), which(colnames(real_r[[4]]) == "abduction_adduction_SR21")],
+                  real_r[[4]][which.max(abs(real_r$AJ_um_real_r$abduction_adduction_SR22)), which(colnames(real_r[[4]]) == "abduction_adduction_SR22")],
+                  real_r[[4]][which.max(abs(real_r$AJ_um_real_r$abduction_adduction_SR23)), which(colnames(real_r[[4]]) == "abduction_adduction_SR23")],
+                  real_r[[4]][which.max(abs(real_r$AJ_um_real_r$abduction_adduction_SR24)), which(colnames(real_r[[4]]) == "abduction_adduction_SR24")],
+                  real_r[[4]][which.max(abs(real_r$AJ_um_real_r$abduction_adduction_SR25)), which(colnames(real_r[[4]]) == "abduction_adduction_SR25")]),
+  
+  oROM_real_z = c(real_r[[4]][which.max(abs(real_r$AJ_um_real_r$protraction_retraction_SR21)), which(colnames(real_r[[4]]) == "protraction_retraction_SR21")],
+                  real_r[[4]][which.max(abs(real_r$AJ_um_real_r$protraction_retraction_SR22)), which(colnames(real_r[[4]]) == "protraction_retraction_SR22")],
+                  real_r[[4]][which.max(abs(real_r$AJ_um_real_r$protraction_retraction_SR23)), which(colnames(real_r[[4]]) == "protraction_retraction_SR23")],
+                  real_r[[4]][which.max(abs(real_r$AJ_um_real_r$protraction_retraction_SR24)), which(colnames(real_r[[4]]) == "protraction_retraction_SR24")],
+                  real_r[[4]][which.max(abs(real_r$AJ_um_real_r$protraction_retraction_SR25)), which(colnames(real_r[[4]]) == "protraction_retraction_SR25")]))  
+
+
+# CBP setup
+# vrs version
+ij_vrs_CBP_bar_data <- data.frame(
+  jnt = c("IR21", "IR22", "IR23", "IR24", "IR25"),
+  oROM_max_x = c(max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$axial_rotation_SR21)), which(colnames(max_vrs[[6]]) == "axial_rotation_SR21")],
+                 max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$axial_rotation_SR22)), which(colnames(max_vrs[[6]]) == "axial_rotation_SR22")],
+                 max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$axial_rotation_SR23)), which(colnames(max_vrs[[6]]) == "axial_rotation_SR23")],
+                 max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$axial_rotation_SR24)), which(colnames(max_vrs[[6]]) == "axial_rotation_SR24")],
+                 max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$axial_rotation_SR25)), which(colnames(max_vrs[[6]]) == "axial_rotation_SR25")]),
+  
+  oROM_max_y = c(max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$abduction_adduction_SR21)), which(colnames(max_vrs[[6]]) == "abduction_adduction_SR21")],
+                 max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$abduction_adduction_SR22)), which(colnames(max_vrs[[6]]) == "abduction_adduction_SR22")],
+                 max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$abduction_adduction_SR23)), which(colnames(max_vrs[[6]]) == "abduction_adduction_SR23")],
+                 max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$abduction_adduction_SR24)), which(colnames(max_vrs[[6]]) == "abduction_adduction_SR24")],
+                 max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$abduction_adduction_SR25)), which(colnames(max_vrs[[6]]) == "abduction_adduction_SR25")]),
+  
+  oROM_max_z = c(max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$protraction_retraction_SR21)), which(colnames(max_vrs[[6]]) == "protraction_retraction_SR21")],
+                 max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$protraction_retraction_SR22)), which(colnames(max_vrs[[6]]) == "protraction_retraction_SR22")],
+                 max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$protraction_retraction_SR23)), which(colnames(max_vrs[[6]]) == "protraction_retraction_SR23")],
+                 max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$protraction_retraction_SR24)), which(colnames(max_vrs[[6]]) == "protraction_retraction_SR24")],
+                 max_vrs[[6]][which.max(abs(max_vrs$CBP_um_max_vrs$protraction_retraction_SR25)), which(colnames(max_vrs[[6]]) == "protraction_retraction_SR25")]),
+  
+  oROM_real_x = c(real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$axial_rotation_SR21)), which(colnames(real_vrs[[6]]) == "axial_rotation_SR21")],
+                  real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$axial_rotation_SR22)), which(colnames(real_vrs[[6]]) == "axial_rotation_SR22")],
+                  real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$axial_rotation_SR23)), which(colnames(real_vrs[[6]]) == "axial_rotation_SR23")],
+                  real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$axial_rotation_SR24)), which(colnames(real_vrs[[6]]) == "axial_rotation_SR24")],
+                  real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$axial_rotation_SR25)), which(colnames(real_vrs[[6]]) == "axial_rotation_SR25")]),
+  
+  oROM_real_y = c(real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$abduction_adduction_SR21)), which(colnames(real_vrs[[6]]) == "abduction_adduction_SR21")],
+                  real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$abduction_adduction_SR22)), which(colnames(real_vrs[[6]]) == "abduction_adduction_SR22")],
+                  real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$abduction_adduction_SR23)), which(colnames(real_vrs[[6]]) == "abduction_adduction_SR23")],
+                  real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$abduction_adduction_SR24)), which(colnames(real_vrs[[6]]) == "abduction_adduction_SR24")],
+                  real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$abduction_adduction_SR25)), which(colnames(real_vrs[[6]]) == "abduction_adduction_SR25")]),
+  
+  oROM_real_z = c(real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$protraction_retraction_SR21)), which(colnames(real_vrs[[6]]) == "protraction_retraction_SR21")],
+                  real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$protraction_retraction_SR22)), which(colnames(real_vrs[[6]]) == "protraction_retraction_SR22")],
+                  real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$protraction_retraction_SR23)), which(colnames(real_vrs[[6]]) == "protraction_retraction_SR23")],
+                  real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$protraction_retraction_SR24)), which(colnames(real_vrs[[6]]) == "protraction_retraction_SR24")],
+                  real_vrs[[6]][which.max(abs(real_vrs$CBP_um_real_vrs$protraction_retraction_SR25)), which(colnames(real_vrs[[6]]) == "protraction_retraction_SR25")]))
+
+
+# rs version
+ij_rs_CBP_bar_data <- data.frame(
+  jnt = c("IR21", "IR22", "IR23", "IR24", "IR25"),
+  oROM_max_x = c(max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$axial_rotation_SR21)), which(colnames(max_rs[[6]]) == "axial_rotation_SR21")],
+                 max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$axial_rotation_SR22)), which(colnames(max_rs[[6]]) == "axial_rotation_SR22")],
+                 max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$axial_rotation_SR23)), which(colnames(max_rs[[6]]) == "axial_rotation_SR23")],
+                 max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$axial_rotation_SR24)), which(colnames(max_rs[[6]]) == "axial_rotation_SR24")],
+                 max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$axial_rotation_SR25)), which(colnames(max_rs[[6]]) == "axial_rotation_SR25")]),
+  
+  oROM_max_y = c(max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$abduction_adduction_SR21)), which(colnames(max_rs[[6]]) == "abduction_adduction_SR21")],
+                 max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$abduction_adduction_SR22)), which(colnames(max_rs[[6]]) == "abduction_adduction_SR22")],
+                 max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$abduction_adduction_SR23)), which(colnames(max_rs[[6]]) == "abduction_adduction_SR23")],
+                 max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$abduction_adduction_SR24)), which(colnames(max_rs[[6]]) == "abduction_adduction_SR24")],
+                 max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$abduction_adduction_SR25)), which(colnames(max_rs[[6]]) == "abduction_adduction_SR25")]),
+  
+  oROM_max_z = c(max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$protraction_retraction_SR21)), which(colnames(max_rs[[6]]) == "protraction_retraction_SR21")],
+                 max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$protraction_retraction_SR22)), which(colnames(max_rs[[6]]) == "protraction_retraction_SR22")],
+                 max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$protraction_retraction_SR23)), which(colnames(max_rs[[6]]) == "protraction_retraction_SR23")],
+                 max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$protraction_retraction_SR24)), which(colnames(max_rs[[6]]) == "protraction_retraction_SR24")],
+                 max_rs[[6]][which.max(abs(max_rs$CBP_um_max_rs$protraction_retraction_SR25)), which(colnames(max_rs[[6]]) == "protraction_retraction_SR25")]),
+  
+  oROM_real_x = c(real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$axial_rotation_SR21)), which(colnames(real_rs[[6]]) == "axial_rotation_SR21")],
+                  real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$axial_rotation_SR22)), which(colnames(real_rs[[6]]) == "axial_rotation_SR22")],
+                  real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$axial_rotation_SR23)), which(colnames(real_rs[[6]]) == "axial_rotation_SR23")],
+                  real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$axial_rotation_SR24)), which(colnames(real_rs[[6]]) == "axial_rotation_SR24")],
+                  real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$axial_rotation_SR25)), which(colnames(real_rs[[6]]) == "axial_rotation_SR25")]),
+  
+  oROM_real_y = c(real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$abduction_adduction_SR21)), which(colnames(real_rs[[6]]) == "abduction_adduction_SR21")],
+                  real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$abduction_adduction_SR22)), which(colnames(real_rs[[6]]) == "abduction_adduction_SR22")],
+                  real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$abduction_adduction_SR23)), which(colnames(real_rs[[6]]) == "abduction_adduction_SR23")],
+                  real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$abduction_adduction_SR24)), which(colnames(real_rs[[6]]) == "abduction_adduction_SR24")],
+                  real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$abduction_adduction_SR25)), which(colnames(real_rs[[6]]) == "abduction_adduction_SR25")]),
+  
+  oROM_real_z = c(real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$protraction_retraction_SR21)), which(colnames(real_rs[[6]]) == "protraction_retraction_SR21")],
+                  real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$protraction_retraction_SR22)), which(colnames(real_rs[[6]]) == "protraction_retraction_SR22")],
+                  real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$protraction_retraction_SR23)), which(colnames(real_rs[[6]]) == "protraction_retraction_SR23")],
+                  real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$protraction_retraction_SR24)), which(colnames(real_rs[[6]]) == "protraction_retraction_SR24")],
+                  real_rs[[6]][which.max(abs(real_rs$CBP_um_real_rs$protraction_retraction_SR25)), which(colnames(real_rs[[6]]) == "protraction_retraction_SR25")]))
+
+
+# r version  
+ij_r_CBP_bar_data <- data.frame(
+  jnt = c("IR21", "IR22", "IR23", "IR24", "IR25"),
+  oROM_max_x = c(max_r[[6]][which.max(abs(max_r$CBP_um_max_r$axial_rotation_SR21)), which(colnames(max_r[[6]]) == "axial_rotation_SR21")],
+                 max_r[[6]][which.max(abs(max_r$CBP_um_max_r$axial_rotation_SR22)), which(colnames(max_r[[6]]) == "axial_rotation_SR22")],
+                 max_r[[6]][which.max(abs(max_r$CBP_um_max_r$axial_rotation_SR23)), which(colnames(max_r[[6]]) == "axial_rotation_SR23")],
+                 max_r[[6]][which.max(abs(max_r$CBP_um_max_r$axial_rotation_SR24)), which(colnames(max_r[[6]]) == "axial_rotation_SR24")],
+                 max_r[[6]][which.max(abs(max_r$CBP_um_max_r$axial_rotation_SR25)), which(colnames(max_r[[6]]) == "axial_rotation_SR25")]),
+  
+  oROM_max_y = c(max_r[[6]][which.max(abs(max_r$CBP_um_max_r$abduction_adduction_SR21)), which(colnames(max_r[[6]]) == "abduction_adduction_SR21")],
+                 max_r[[6]][which.max(abs(max_r$CBP_um_max_r$abduction_adduction_SR22)), which(colnames(max_r[[6]]) == "abduction_adduction_SR22")],
+                 max_r[[6]][which.max(abs(max_r$CBP_um_max_r$abduction_adduction_SR23)), which(colnames(max_r[[6]]) == "abduction_adduction_SR23")],
+                 max_r[[6]][which.max(abs(max_r$CBP_um_max_r$abduction_adduction_SR24)), which(colnames(max_r[[6]]) == "abduction_adduction_SR24")],
+                 max_r[[6]][which.max(abs(max_r$CBP_um_max_r$abduction_adduction_SR25)), which(colnames(max_r[[6]]) == "abduction_adduction_SR25")]),
+  
+  oROM_max_z = c(max_r[[6]][which.max(abs(max_r$CBP_um_max_r$protraction_retraction_SR21)), which(colnames(max_r[[6]]) == "protraction_retraction_SR21")],
+                 max_r[[6]][which.max(abs(max_r$CBP_um_max_r$protraction_retraction_SR22)), which(colnames(max_r[[6]]) == "protraction_retraction_SR22")],
+                 max_r[[6]][which.max(abs(max_r$CBP_um_max_r$protraction_retraction_SR23)), which(colnames(max_r[[6]]) == "protraction_retraction_SR23")],
+                 max_r[[6]][which.max(abs(max_r$CBP_um_max_r$protraction_retraction_SR24)), which(colnames(max_r[[6]]) == "protraction_retraction_SR24")],
+                 max_r[[6]][which.max(abs(max_r$CBP_um_max_r$protraction_retraction_SR25)), which(colnames(max_r[[6]]) == "protraction_retraction_SR25")]),
+  
+  oROM_real_x = c(real_r[[6]][which.max(abs(real_r$CBP_um_real_r$axial_rotation_SR21)), which(colnames(real_r[[6]]) == "axial_rotation_SR21")],
+                  real_r[[6]][which.max(abs(real_r$CBP_um_real_r$axial_rotation_SR22)), which(colnames(real_r[[6]]) == "axial_rotation_SR22")],
+                  real_r[[6]][which.max(abs(real_r$CBP_um_real_r$axial_rotation_SR23)), which(colnames(real_r[[6]]) == "axial_rotation_SR23")],
+                  real_r[[6]][which.max(abs(real_r$CBP_um_real_r$axial_rotation_SR24)), which(colnames(real_r[[6]]) == "axial_rotation_SR24")],
+                  real_r[[6]][which.max(abs(real_r$CBP_um_real_r$axial_rotation_SR25)), which(colnames(real_r[[6]]) == "axial_rotation_SR25")]),
+  
+  oROM_real_y = c(real_r[[6]][which.max(abs(real_r$CBP_um_real_r$abduction_adduction_SR21)), which(colnames(real_r[[6]]) == "abduction_adduction_SR21")],
+                  real_r[[6]][which.max(abs(real_r$CBP_um_real_r$abduction_adduction_SR22)), which(colnames(real_r[[6]]) == "abduction_adduction_SR22")],
+                  real_r[[6]][which.max(abs(real_r$CBP_um_real_r$abduction_adduction_SR23)), which(colnames(real_r[[6]]) == "abduction_adduction_SR23")],
+                  real_r[[6]][which.max(abs(real_r$CBP_um_real_r$abduction_adduction_SR24)), which(colnames(real_r[[6]]) == "abduction_adduction_SR24")],
+                  real_r[[6]][which.max(abs(real_r$CBP_um_real_r$abduction_adduction_SR25)), which(colnames(real_r[[6]]) == "abduction_adduction_SR25")]),
+  
+  oROM_real_z = c(real_r[[6]][which.max(abs(real_r$CBP_um_real_r$protraction_retraction_SR21)), which(colnames(real_r[[6]]) == "protraction_retraction_SR21")],
+                  real_r[[6]][which.max(abs(real_r$CBP_um_real_r$protraction_retraction_SR22)), which(colnames(real_r[[6]]) == "protraction_retraction_SR22")],
+                  real_r[[6]][which.max(abs(real_r$CBP_um_real_r$protraction_retraction_SR23)), which(colnames(real_r[[6]]) == "protraction_retraction_SR23")],
+                  real_r[[6]][which.max(abs(real_r$CBP_um_real_r$protraction_retraction_SR24)), which(colnames(real_r[[6]]) == "protraction_retraction_SR24")],
+                  real_r[[6]][which.max(abs(real_r$CBP_um_real_r$protraction_retraction_SR25)), which(colnames(real_r[[6]]) == "protraction_retraction_SR25")]))  
+
+
+# make bar plots
+# vrs version
+# costal joints
+x_AB_bar <- ggplot() +
+  geom_bar(data = ij_vrs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x), stat = "identity", fill = "#FF4C00", alpha = .3) +
+  geom_text(data = ij_vrs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x, label = oROM_max_x), vjust = ifelse(ij_vrs_AB_bar_data$oROM_max_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = ij_vrs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x), stat = "identity", fill = "#FF4C00", alpha = .6) +
+  geom_text(data = ij_vrs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x, label = oROM_real_x), vjust = ifelse(ij_vrs_AB_bar_data$oROM_real_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+x_AJ_bar <- ggplot() +
+  geom_bar(data = ij_vrs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x), stat = "identity", fill = "#E7B10A", alpha = .3) +
+  geom_text(data = ij_vrs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x, label = oROM_max_x), vjust = ifelse(ij_vrs_AJ_bar_data$oROM_max_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = ij_vrs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x), stat = "identity", fill = "#E7B10A", alpha = .6) +
+  geom_text(data = ij_vrs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x, label = oROM_real_x), vjust = ifelse(ij_vrs_AJ_bar_data$oROM_real_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+x_CBP_bar <- ggplot() +
+  geom_bar(data = ij_vrs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x), stat = "identity", fill = "#041E42", alpha = .3) +
+  geom_text(data = ij_vrs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x, label = oROM_max_x), vjust = ifelse(ij_vrs_CBP_bar_data$oROM_max_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = ij_vrs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x), stat = "identity", fill = "#041E42", alpha = .6) +
+  geom_text(data = ij_vrs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x, label = oROM_real_x), vjust = ifelse(ij_vrs_CBP_bar_data$oROM_real_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+y_AB_bar <- ggplot() +
+  geom_bar(data = ij_vrs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y), stat = "identity", fill = "#FF4C00", alpha = .3) +
+  geom_text(data = ij_vrs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y, label = oROM_max_y), vjust = ifelse(ij_vrs_AB_bar_data$oROM_max_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = ij_vrs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y), stat = "identity", fill = "#FF4C00", alpha = .6) +
+  geom_text(data = ij_vrs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y, label = oROM_real_y), vjust = ifelse(ij_vrs_AB_bar_data$oROM_real_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+y_AJ_bar <- ggplot() +
+  geom_bar(data = ij_vrs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y), stat = "identity", fill = "#E7B10A", alpha = .3) +
+  geom_text(data = ij_vrs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y, label = oROM_max_y), vjust = ifelse(ij_vrs_AJ_bar_data$oROM_max_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = ij_vrs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y), stat = "identity", fill = "#E7B10A", alpha = .6) +
+  geom_text(data = ij_vrs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y, label = oROM_real_y), vjust = ifelse(ij_vrs_AJ_bar_data$oROM_real_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+y_CBP_bar <- ggplot() +
+  geom_bar(data = ij_vrs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y), stat = "identity", fill = "#041E42", alpha = .3) +
+  geom_text(data = ij_vrs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y, label = oROM_max_y), vjust = ifelse(ij_vrs_CBP_bar_data$oROM_max_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = ij_vrs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y), stat = "identity", fill = "#041E42", alpha = .6) +
+  geom_text(data = ij_vrs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y, label = oROM_real_y), vjust = ifelse(ij_vrs_CBP_bar_data$oROM_real_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+z_AB_bar <- ggplot() +
+  geom_bar(data = ij_vrs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z), stat = "identity", fill = "#FF4C00", alpha = .3) +
+  geom_text(data = ij_vrs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z, label = oROM_max_z), vjust = ifelse(ij_vrs_AB_bar_data$oROM_max_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = ij_vrs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z), stat = "identity", fill = "#FF4C00", alpha = .6) +
+  geom_text(data = ij_vrs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z, label = oROM_real_z), vjust = ifelse(ij_vrs_AB_bar_data$oROM_real_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+z_AJ_bar <- ggplot() +
+  geom_bar(data = ij_vrs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z), stat = "identity", fill = "#E7B10A", alpha = .3) +
+  geom_text(data = ij_vrs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z, label = oROM_max_z), vjust = ifelse(ij_vrs_AJ_bar_data$oROM_max_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = ij_vrs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z), stat = "identity", fill = "#E7B10A", alpha = .6) +
+  geom_text(data = ij_vrs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z, label = oROM_real_z), vjust = ifelse(ij_vrs_AJ_bar_data$oROM_real_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+z_CBP_bar <- ggplot() +
+  geom_bar(data = ij_vrs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z), stat = "identity", fill = "#041E42", alpha = .3) +
+  geom_text(data = ij_vrs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z, label = oROM_max_z), vjust = ifelse(ij_vrs_CBP_bar_data$oROM_max_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = ij_vrs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z), stat = "identity", fill = "#041E42", alpha = .6) +
+  geom_text(data = ij_vrs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z, label = oROM_real_z), vjust = ifelse(ij_vrs_CBP_bar_data$oROM_real_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+p <- ggarrange(x_AB_bar, x_AJ_bar, x_CBP_bar,
+               y_AB_bar, y_AJ_bar, y_CBP_bar,
+               z_AB_bar, z_AJ_bar, z_CBP_bar,
+               ncol = 3, nrow = 3,
+               labels = c("A", "B", "C",
+                          "D", "E", "F",
+                          "G", "H", "I"),
+               common.legend = TRUE, legend = "bottom")
+
+ggsave(plot = p, dpi = 600, bg = "white", 
+       filename = "bird_intracos_vrs_bar.png", 
+       device = "png", width = 22, heigh = 28, units = "cm")
+
+
+# rs version
+x_AB_bar <- ggplot() +
+  geom_bar(data = ij_rs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x), stat = "identity", fill = "#FF4C00", alpha = .3) +
+  geom_text(data = ij_rs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x, label = oROM_max_x), vjust = ifelse(ij_rs_AB_bar_data$oROM_max_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = ij_rs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x), stat = "identity", fill = "#FF4C00", alpha = .6) +
+  geom_text(data = ij_rs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x, label = oROM_real_x), vjust = ifelse(ij_rs_AB_bar_data$oROM_real_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+x_AJ_bar <- ggplot() +
+  geom_bar(data = ij_rs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x), stat = "identity", fill = "#E7B10A", alpha = .3) +
+  geom_text(data = ij_rs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x, label = oROM_max_x), vjust = ifelse(ij_rs_AJ_bar_data$oROM_max_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = ij_rs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x), stat = "identity", fill = "#E7B10A", alpha = .6) +
+  geom_text(data = ij_rs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x, label = oROM_real_x), vjust = ifelse(ij_rs_AJ_bar_data$oROM_real_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+x_CBP_bar <- ggplot() +
+  geom_bar(data = ij_rs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x), stat = "identity", fill = "#041E42", alpha = .3) +
+  geom_text(data = ij_rs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x, label = oROM_max_x), vjust = ifelse(ij_rs_CBP_bar_data$oROM_max_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = ij_rs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x), stat = "identity", fill = "#041E42", alpha = .6) +
+  geom_text(data = ij_rs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x, label = oROM_real_x), vjust = ifelse(ij_rs_CBP_bar_data$oROM_real_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+y_AB_bar <- ggplot() +
+  geom_bar(data = ij_rs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y), stat = "identity", fill = "#FF4C00", alpha = .3) +
+  geom_text(data = ij_rs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y, label = oROM_max_y), vjust = ifelse(ij_rs_AB_bar_data$oROM_max_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = ij_rs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y), stat = "identity", fill = "#FF4C00", alpha = .6) +
+  geom_text(data = ij_rs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y, label = oROM_real_y), vjust = ifelse(ij_rs_AB_bar_data$oROM_real_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+y_AJ_bar <- ggplot() +
+  geom_bar(data = ij_rs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y), stat = "identity", fill = "#E7B10A", alpha = .3) +
+  geom_text(data = ij_rs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y, label = oROM_max_y), vjust = ifelse(ij_rs_AJ_bar_data$oROM_max_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = ij_rs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y), stat = "identity", fill = "#E7B10A", alpha = .6) +
+  geom_text(data = ij_rs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y, label = oROM_real_y), vjust = ifelse(ij_rs_AJ_bar_data$oROM_real_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+y_CBP_bar <- ggplot() +
+  geom_bar(data = ij_rs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y), stat = "identity", fill = "#041E42", alpha = .3) +
+  geom_text(data = ij_rs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y, label = oROM_max_y), vjust = ifelse(ij_rs_CBP_bar_data$oROM_max_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = ij_rs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y), stat = "identity", fill = "#041E42", alpha = .6) +
+  geom_text(data = ij_rs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y, label = oROM_real_y), vjust = ifelse(ij_rs_CBP_bar_data$oROM_real_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+z_AB_bar <- ggplot() +
+  geom_bar(data = ij_rs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z), stat = "identity", fill = "#FF4C00", alpha = .3) +
+  geom_text(data = ij_rs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z, label = oROM_max_z), vjust = ifelse(ij_rs_AB_bar_data$oROM_max_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = ij_rs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z), stat = "identity", fill = "#FF4C00", alpha = .6) +
+  geom_text(data = ij_rs_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z, label = oROM_real_z), vjust = ifelse(ij_rs_AB_bar_data$oROM_real_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+z_AJ_bar <- ggplot() +
+  geom_bar(data = ij_rs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z), stat = "identity", fill = "#E7B10A", alpha = .3) +
+  geom_text(data = ij_rs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z, label = oROM_max_z), vjust = ifelse(ij_rs_AJ_bar_data$oROM_max_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = ij_rs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z), stat = "identity", fill = "#E7B10A", alpha = .6) +
+  geom_text(data = ij_rs_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z, label = oROM_real_z), vjust = ifelse(ij_rs_AJ_bar_data$oROM_real_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+z_CBP_bar <- ggplot() +
+  geom_bar(data = ij_rs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z), stat = "identity", fill = "#041E42", alpha = .3) +
+  geom_text(data = ij_rs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z, label = oROM_max_z), vjust = ifelse(ij_rs_CBP_bar_data$oROM_max_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = ij_rs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z), stat = "identity", fill = "#041E42", alpha = .6) +
+  geom_text(data = ij_rs_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z, label = oROM_real_z), vjust = ifelse(ij_rs_CBP_bar_data$oROM_real_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+p <- ggarrange(x_AB_bar, x_AJ_bar, x_CBP_bar,
+               y_AB_bar, y_AJ_bar, y_CBP_bar,
+               z_AB_bar, z_AJ_bar, z_CBP_bar,
+               ncol = 3, nrow = 3,
+               labels = c("A", "B", "C",
+                          "D", "E", "F",
+                          "G", "H", "I"),
+               common.legend = TRUE, legend = "bottom")
+
+ggsave(plot = p, dpi = 600, bg = "white", 
+       filename = "bird_intracos_rs_bar.png", 
+       device = "png", width = 22, heigh = 28, units = "cm")
+
+
+# r version
+x_AB_bar <- ggplot() +
+  geom_bar(data = ij_r_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x), stat = "identity", fill = "#FF4C00", alpha = .3) +
+  geom_text(data = ij_r_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x, label = oROM_max_x), vjust = ifelse(ij_r_AB_bar_data$oROM_max_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = ij_r_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x), stat = "identity", fill = "#FF4C00", alpha = .6) +
+  geom_text(data = ij_r_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x, label = oROM_real_x), vjust = ifelse(ij_r_AB_bar_data$oROM_real_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+x_AJ_bar <- ggplot() +
+  geom_bar(data = ij_r_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x), stat = "identity", fill = "#E7B10A", alpha = .3) +
+  geom_text(data = ij_r_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x, label = oROM_max_x), vjust = ifelse(ij_r_AJ_bar_data$oROM_max_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = ij_r_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x), stat = "identity", fill = "#E7B10A", alpha = .6) +
+  geom_text(data = ij_r_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x, label = oROM_real_x), vjust = ifelse(ij_r_AJ_bar_data$oROM_real_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+x_CBP_bar <- ggplot() +
+  geom_bar(data = ij_r_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x), stat = "identity", fill = "#041E42", alpha = .3) +
+  geom_text(data = ij_r_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_x, label = oROM_max_x), vjust = ifelse(ij_r_CBP_bar_data$oROM_max_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = ij_r_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x), stat = "identity", fill = "#041E42", alpha = .6) +
+  geom_text(data = ij_r_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_x, label = oROM_real_x), vjust = ifelse(ij_r_CBP_bar_data$oROM_real_x > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+y_AB_bar <- ggplot() +
+  geom_bar(data = ij_r_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y), stat = "identity", fill = "#FF4C00", alpha = .3) +
+  geom_text(data = ij_r_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y, label = oROM_max_y), vjust = ifelse(ij_r_AB_bar_data$oROM_max_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = ij_r_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y), stat = "identity", fill = "#FF4C00", alpha = .6) +
+  geom_text(data = ij_r_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y, label = oROM_real_y), vjust = ifelse(ij_r_AB_bar_data$oROM_real_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+y_AJ_bar <- ggplot() +
+  geom_bar(data = ij_r_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y), stat = "identity", fill = "#E7B10A", alpha = .3) +
+  geom_text(data = ij_r_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y, label = oROM_max_y), vjust = ifelse(ij_r_AJ_bar_data$oROM_max_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = ij_r_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y), stat = "identity", fill = "#E7B10A", alpha = .6) +
+  geom_text(data = ij_r_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y, label = oROM_real_y), vjust = ifelse(ij_r_AJ_bar_data$oROM_real_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+y_CBP_bar <- ggplot() +
+  geom_bar(data = ij_r_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y), stat = "identity", fill = "#041E42", alpha = .3) +
+  geom_text(data = ij_r_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_y, label = oROM_max_y), vjust = ifelse(ij_r_CBP_bar_data$oROM_max_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = ij_r_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y), stat = "identity", fill = "#041E42", alpha = .6) +
+  geom_text(data = ij_r_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_y, label = oROM_real_y), vjust = ifelse(ij_r_CBP_bar_data$oROM_real_y > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+z_AB_bar <- ggplot() +
+  geom_bar(data = ij_r_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z), stat = "identity", fill = "#FF4C00", alpha = .3) +
+  geom_text(data = ij_r_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z, label = oROM_max_z), vjust = ifelse(ij_r_AB_bar_data$oROM_max_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = ij_r_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z), stat = "identity", fill = "#FF4C00", alpha = .6) +
+  geom_text(data = ij_r_AB_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z, label = oROM_real_z), vjust = ifelse(ij_r_AB_bar_data$oROM_real_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+z_AJ_bar <- ggplot() +
+  geom_bar(data = ij_r_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z), stat = "identity", fill = "#E7B10A", alpha = .3) +
+  geom_text(data = ij_r_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z, label = oROM_max_z), vjust = ifelse(ij_r_AJ_bar_data$oROM_max_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = ij_r_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z), stat = "identity", fill = "#E7B10A", alpha = .6) +
+  geom_text(data = ij_r_AJ_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z, label = oROM_real_z), vjust = ifelse(ij_r_AJ_bar_data$oROM_real_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+z_CBP_bar <- ggplot() +
+  geom_bar(data = ij_r_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z), stat = "identity", fill = "#041E42", alpha = .3) +
+  geom_text(data = ij_r_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_max_z, label = oROM_max_z), vjust = ifelse(ij_r_CBP_bar_data$oROM_max_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_bar(data = ij_r_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z), stat = "identity", fill = "#041E42", alpha = .6) +
+  geom_text(data = ij_r_CBP_bar_data, aes(x = factor(jnt, levels = jnt), y = oROM_real_z, label = oROM_real_z), vjust = ifelse(ij_r_CBP_bar_data$oROM_real_z > 0, 1, -1), size = 1, colour = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+  xlab("Costal joints") +
+  ylab("Maximal joint rotations (deg)") +
+  theme_classic() +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9))
+
+p <- ggarrange(x_AB_bar, x_AJ_bar, x_CBP_bar,
+               y_AB_bar, y_AJ_bar, y_CBP_bar,
+               z_AB_bar, z_AJ_bar, z_CBP_bar,
+               ncol = 3, nrow = 3,
+               labels = c("A", "B", "C",
+                          "D", "E", "F",
+                          "G", "H", "I"),
+               common.legend = TRUE, legend = "bottom")
+
+ggsave(plot = p, dpi = 600, bg = "white", 
+       filename = "bird_intracos_r_bar.png", 
+       device = "png", width = 22, heigh = 28, units = "cm")
+
+
+
+# generate individual plot for invertebral, costal, and intracostal joints
+# generate IV plots
+for(i in 2:8){
+  temp_um <- data.frame(
+    IV_jnts[[3]][c(1, i)], IV_jnts[[4]][i])
+  colnames(temp_um) <- c("time", "flexex_max", "flexex_real")
+  temp_um$time <- (temp_um$time/6)
+  
+  temp_ca <- data.frame(
+    IV_jnts[[1]][c(1, i)], IV_jnts[[2]][i])
+  colnames(temp_ca) <- c("time", "flexex_max", "flexex_real")
+  temp_ca$time <- (temp_ca$time/6)
+  
+  bar_data <- data.frame(
+    jcs = c("Flexion extension"),
+    oROM_max = temp_um[which.max(abs(temp_um$flexex_max)), which(colnames(temp_um) == "flexex_max")],
+    oROM_real = temp_um[which.max(abs(temp_um$flexex_real)), which(colnames(temp_um) == "flexex_real")]
+  )
+  
+  x_max <- ggplot() +
+    geom_line(data = temp_um, aes(x = time, y = flexex_max), colour = "#FF4C00", linewidth = 1.5, alpha = .4) +
+    geom_line(data = temp_ca, aes(x = time, y = flexex_max), colour = "#FF4C00", linewidth = 1.5, alpha = .8, linetype = "twodash") +
+    geom_hline(yintercept = 0, linetype = "solid", color = "black", linewidth = 1) + 
+    scale_x_continuous(expand = c(0, 0), limits = c(0, NA)) +
+    xlab("Percentage of ventilatory cycle") +
+    ylab("Joint rotations (deg)") +
+    theme_classic() +
+    theme(axis.line = element_line(colour = "black", linewidth = 0.5, linetype = "solid"), 
+          axis.text = element_text(size = 10),
+          axis.title = element_text(size = 12))
+  
+  x_real <- ggplot() +
+    geom_line(data = temp_um, aes(x = time, y = flexex_real), colour = "#FF4C00", linewidth = 1.5, alpha = .4) +
+    geom_line(data = temp_ca, aes(x = time, y = flexex_real), colour = "#FF4C00", linewidth = 1.5, alpha = .8, linetype = "twodash") +
+    geom_hline(yintercept = 0, linetype = "solid", color = "black", linewidth = 1) + 
+    scale_x_continuous(expand = c(0, 0), limits = c(0, NA)) +
+    xlab("Percentage of ventilatory cycle") +
+    ylab("Joint rotations (deg)") +
+    theme_classic() +
+    theme(axis.line = element_line(colour = "black", linewidth = 0.5, linetype = "solid"), 
+          axis.text = element_text(size = 10),
+          axis.title = element_text(size = 12)) 
+  
+  x_bar <- ggplot() +
+    geom_bar(data = bar_data, aes(x = jcs, y = oROM_max, fill = jcs), stat = "identity", alpha = .3) + 
+    geom_text(data = bar_data, aes(x = jcs, y = oROM_max, label = oROM_max), vjust = ifelse(bar_data$oROM_max > 0, 1, -1), size = 2, colour = "black") +
+    geom_bar(data = bar_data, aes(x = jcs, y = oROM_real, fill = jcs), stat = "identity", alpha = .8) +
+    geom_text(data = bar_data, aes(x = jcs, y = oROM_real, label = oROM_real), vjust = ifelse(bar_data$oROM_real > 0, 1, -0.5), size = 2, colour = "black") +
+    scale_fill_manual(name = "Flexion extension", values = c("#FF4C00")) +
+    geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+    xlab("Joint coordinate systems (JCSs)") +
+    ylab("Maximal joint rotations (deg)") +
+    theme_classic() +
+    theme(axis.line.x = element_blank(),
+          axis.ticks.x = element_blank(),
+          axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+          axis.text = element_text(size = 10),
+          axis.title = element_text(size = 12),
+          legend.title = element_blank())
+  
+  p <- ggarrange(x_max, x_real, x_bar,
+                 ncol = 3, nrow = 1,
+                 labels = c("A", "B", "C"),
+                 common.legend = TRUE, legend = "bottom")
+  
+  ggsave(plot = p, dpi = 600, bg = "white", 
+         filename = paste0("bird_", IV_names[(i-1)], ".png"), 
+         device = "png", width = 22, heigh = 14, units = "cm")
+}
+
+
+# arrange the rib joint data for plotting
+plot_max <- list(max_vrs, max_rs, max_r)
+plot_real <- list(real_vrs, real_rs, real_r)
+
+# generate rib joint plots
+for(d in 1:length(plot_max)){
+  for(i in seq(from = 2, to = 35, by = 3)){
+    temp_um <- data.frame(
+      plot_max[[d]][[2]][c(1, i:(i + 2))], plot_real[[d]][[2]][c(i:(i + 2))],
+      plot_max[[d]][[4]][c(i:(i + 2))], plot_real[[d]][[4]][c(i:(i + 2))],
+      plot_max[[d]][[6]][c(i:(i + 2))], plot_real[[d]][[6]][c(i:(i + 2))])
+    colnames(temp_um) <- c("time", "ax_AB_max", "abad_AB_max", "prore_AB_max", "ax_AB_real", "abad_AB_real", "prore_AB_real",
+                           "ax_AJ_max", "abad_AJ_max", "prore_AJ_max", "ax_AJ_real", "abad_AJ_real", "prore_AJ_real",
+                           "pum_CBP_max", "cali_CBP_max", "buck_CBP_max", "pum_CBP_real", "cali_CBP_real", "buck_CBP_real")
+    temp_um$time <- (temp_um$time/6)
+    
+    temp_ca <- data.frame(
+      plot_max[[d]][[1]][c(1, i:(i + 2))], plot_real[[d]][[1]][c(i:(i + 2))],
+      plot_max[[d]][[3]][c(i:(i + 2))], plot_real[[d]][[3]][c(i:(i + 2))],
+      plot_max[[d]][[5]][c(i:(i + 2))], plot_real[[d]][[5]][c(i:(i + 2))])
+    colnames(temp_ca) <- c("time", "ax_AB_max", "abad_AB_max", "prore_AB_max", "ax_AB_real", "abad_AB_real", "prore_AB_real",
+                           "ax_AJ_max", "abad_AJ_max", "prore_AJ_max", "ax_AJ_real", "abad_AJ_real", "prore_AJ_real",
+                           "pum_CBP_max", "cali_CBP_max", "buck_CBP_max", "pum_CBP_real", "cali_CBP_real", "buck_CBP_real")
+    temp_ca$time <- (temp_ca$time/6)
+    
+    #only the uniform data is used to bar plots as max values are the same
+    bar_data <- data.frame(
+      jcs = c("AB", "AJ", "CBP"),
+      oROM_max_x = c(temp_um[which.max(abs(temp_um$ax_AB_max)), which(colnames(temp_um) == "ax_AB_max")], 
+                     temp_um[which.max(abs(temp_um$ax_AJ_max)), which(colnames(temp_um) == "ax_AJ_max")], 
+                     temp_um[which.max(abs(temp_um$pum_CBP_max)), which(colnames(temp_um) == "pum_CBP_max")]),
+      
+      oROM_max_y = c(temp_um[which.max(abs(temp_um$abad_AB_max)), which(colnames(temp_um) == "abad_AB_max")], 
+                     temp_um[which.max(abs(temp_um$abad_AJ_max)), which(colnames(temp_um) == "abad_AJ_max")], 
+                     temp_um[which.max(abs(temp_um$cali_CBP_max)), which(colnames(temp_um) == "cali_CBP_max")]),
+      
+      oROM_max_z = c(temp_um[which.max(abs(temp_um$prore_AB_max)), which(colnames(temp_um) == "prore_AB_max")], 
+                     temp_um[which.max(abs(temp_um$prore_AJ_max)), which(colnames(temp_um) == "prore_AJ_max")], 
+                     temp_um[which.max(abs(temp_um$buck_CBP_max)), which(colnames(temp_um) == "buck_CBP_max")]),
+      
+      oROM_real_x = c(temp_um[which.max(abs(temp_um$ax_AB_real)), which(colnames(temp_um) == "ax_AB_real")], 
+                      temp_um[which.max(abs(temp_um$ax_AJ_real)), which(colnames(temp_um) == "ax_AJ_real")], 
+                      temp_um[which.max(abs(temp_um$pum_CBP_real)), which(colnames(temp_um) == "pum_CBP_real")]),
+      
+      oROM_real_y = c(temp_um[which.max(abs(temp_um$abad_AB_real)), which(colnames(temp_um) == "abad_AB_real")], 
+                      temp_um[which.max(abs(temp_um$abad_AJ_real)), which(colnames(temp_um) == "abad_AJ_real")], 
+                      temp_um[which.max(abs(temp_um$cali_CBP_real)), which(colnames(temp_um) == "cali_CBP_real")]),
+      
+      oROM_real_z = c(temp_um[which.max(abs(temp_um$prore_AB_real)), which(colnames(temp_um) == "prore_AB_real")], 
+                      temp_um[which.max(abs(temp_um$prore_AJ_real)), which(colnames(temp_um) == "prore_AJ_real")], 
+                      temp_um[which.max(abs(temp_um$buck_CBP_real)), which(colnames(temp_um) == "buck_CBP_real")])
+    )
+    
+    x_max <- ggplot() +
+      geom_line(data = temp_um, aes(x = time, y = ax_AB_max), colour = "#FF4C00", linewidth = 1.5, alpha = .4) +
+      geom_line(data = temp_ca, aes(x = time, y = ax_AB_max), colour = "#FF4C00", linewidth = 1.5, alpha = .8, linetype = "twodash") +
+      geom_line(data = temp_um, aes(x = time, y = ax_AJ_max), colour = "#E7B10A", linewidth = 1.5, alpha = .4) +
+      geom_line(data = temp_ca, aes(x = time, y = ax_AJ_max), colour = "#E7B10A", linewidth = 1.5, alpha = .8, linetype = "twodash") +
+      geom_line(data = temp_um, aes(x = time, y = pum_CBP_max), colour = "#041E42", linewidth = 1.5, alpha = .4) +
+      geom_line(data = temp_ca, aes(x = time, y = pum_CBP_max), colour = "#041E42", linewidth = 1.5, alpha = .8, linetype = "twodash") +
+      geom_hline(yintercept = 0, linetype = "solid", color = "black", linewidth = 1) + 
+      scale_x_continuous(expand = c(0, 0), limits = c(0, NA)) +
+      xlab("Percentage of ventilatory cycle") +
+      ylab("Joint rotations (deg)") +
+      theme_classic() +
+      theme(axis.line = element_line(colour = "black", linewidth = 0.5, linetype = "solid"), 
+            axis.text = element_text(size = 10),
+            axis.title = element_text(size = 12))
+    
+    x_real <- ggplot() +
+      geom_line(data = temp_um, aes(x = time, y = ax_AB_real), colour = "#FF4C00", linewidth = 1.5, alpha = .4) + 
+      geom_line(data = temp_ca, aes(x = time, y = ax_AB_real), colour = "#FF4C00", linewidth = 1.5, alpha = .8, linetype = "twodash") + 
+      geom_line(data = temp_um, aes(x = time, y = ax_AJ_real), colour = "#E7B10A", linewidth = 1.5, alpha = .4) +
+      geom_line(data = temp_ca, aes(x = time, y = ax_AJ_real), colour = "#E7B10A", linewidth = 1.5, alpha = .8, linetype = "twodash") +
+      geom_line(data = temp_um, aes(x = time, y = pum_CBP_real), colour = "#041E42", linewidth = 1.5, alpha = .4) +
+      geom_line(data = temp_ca, aes(x = time, y = pum_CBP_real), colour = "#041E42", linewidth = 1.5, alpha = .8, linetype = "twodash") +
+      geom_hline(yintercept = 0, linetype = "solid", color = "black", linewidth = 1) + 
+      scale_x_continuous(expand = c(0, 0), limits = c(0, NA)) +
+      xlab("Percentage of ventilatory cycle") +
+      ylab("Joint rotations (deg)") +
+      theme_classic() +
+      theme(axis.line = element_line(colour = "black", linewidth = 0.5, linetype = "solid"), 
+            axis.text = element_text(size = 10),
+            axis.title = element_text(size = 12))
+    
+    x_bar <- ggplot() +
+      geom_bar(data = bar_data, aes(x = jcs, y = oROM_max_x, fill = jcs), stat = "identity", alpha = .3) + 
+      geom_text(data = bar_data, aes(x = jcs, y = oROM_max_x, label = oROM_max_x), vjust = ifelse(bar_data$oROM_max_x > 0, 1, -1), size = 2, colour = "black") +
+      geom_bar(data = bar_data, aes(x = jcs, y = oROM_real_x, fill = jcs), stat = "identity", alpha = .8) +
+      scale_fill_manual(name = "Types of JCS", values = c("#FF4C00", "#E7B10A", "#041E42")) +
+      geom_text(data = bar_data, aes(x = jcs, y = oROM_real_x, label = oROM_real_x), vjust = ifelse(bar_data$oROM_real_x > 0, 1, -0.5), size = 2, colour = "black") +
+      geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+      xlab("Joint coordinate systems (JCSs)") +
+      ylab("Maximal joint rotations (deg)") +
+      theme_classic() +
+      theme(axis.line.x = element_blank(),
+            axis.ticks.x = element_blank(),
+            axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+            axis.text = element_text(size = 10),
+            axis.title = element_text(size = 12))
+    
+    y_max <- ggplot() +
+      geom_line(data = temp_um, aes(x = time, y = abad_AB_max), colour = "#FF4C00", linewidth = 1.5, alpha = .4) +
+      geom_line(data = temp_ca, aes(x = time, y = abad_AB_max), colour = "#FF4C00", linewidth = 1.5, alpha = .8, linetype = "twodash") +
+      geom_line(data = temp_um, aes(x = time, y = abad_AJ_max), colour = "#E7B10A", linewidth = 1.5, alpha = .4) +
+      geom_line(data = temp_ca, aes(x = time, y = abad_AJ_max), colour = "#E7B10A", linewidth = 1.5, alpha = .8, linetype = "twodash") +
+      geom_line(data = temp_um, aes(x = time, y = cali_CBP_max), colour = "#041E42", linewidth = 1.5, alpha = .4) +
+      geom_line(data = temp_ca, aes(x = time, y = cali_CBP_max), colour = "#041E42", linewidth = 1.5, alpha = .8, linetype = "twodash") +
+      geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+      scale_x_continuous(expand = c(0, 0), limits = c(0, NA)) +
+      xlab("Percentage of ventilatory cycle") +
+      ylab("Joint rotations (deg)") +
+      theme_classic() +
+      theme(axis.line = element_line(colour = "black", linewidth = 0.5, linetype = "solid"), 
+            axis.text = element_text(size = 10),
+            axis.title = element_text(size = 12))
+    
+    y_real <- ggplot() +
+      geom_line(data = temp_um, aes(x = time, y = abad_AB_real), colour = "#FF4C00", linewidth = 1.5, alpha = .4) + 
+      geom_line(data = temp_ca, aes(x = time, y = abad_AB_real), colour = "#FF4C00", linewidth = 1.5, alpha = .8, linetype = "twodash") + 
+      geom_line(data = temp_um, aes(x = time, y = abad_AJ_real), colour = "#E7B10A", linewidth = 1.5, alpha = .4) +
+      geom_line(data = temp_ca, aes(x = time, y = abad_AJ_real), colour = "#E7B10A", linewidth = 1.5, alpha = .8, linetype = "twodash") +
+      geom_line(data = temp_um, aes(x = time, y = cali_CBP_real), colour = "#041E42", linewidth = 1.5, alpha = .4) +
+      geom_line(data = temp_ca, aes(x = time, y = cali_CBP_real), colour = "#041E42", linewidth = 1.5, alpha = .8, linetype = "twodash") +
+      geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+      scale_x_continuous(expand = c(0, 0), limits = c(0, NA)) +
+      xlab("Percentage of ventilatory cycle") +
+      ylab("Joint rotations (deg)") +
+      theme_classic() +
+      theme(axis.line = element_line(colour = "black", linewidth = 0.5, linetype = "solid"), 
+            axis.text = element_text(size = 10),
+            axis.title = element_text(size = 12))
+    
+    y_bar <- ggplot() +
+      geom_bar(data = bar_data, aes(x = jcs, y = oROM_max_y, fill = jcs), stat = "identity", alpha = .3) +
+      geom_text(data = bar_data, aes(x = jcs, y = oROM_max_y, label = oROM_max_y), vjust = ifelse(bar_data$oROM_max_y > 0, 1, -1), size = 2, colour = "black") +
+      geom_bar(data = bar_data, aes(x = jcs, y = oROM_real_y, fill = jcs), stat = "identity", alpha = .8) +
+      scale_fill_manual(name = "Types of JCS", values = c("#FF4C00", "#E7B10A", "#041E42")) +
+      geom_text(data = bar_data, aes(x = jcs, y = oROM_real_y, label = oROM_real_y), vjust = ifelse(bar_data$oROM_real_y > 0, 1, -0.5), size = 2, colour = "black") +
+      geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+      xlab("Joint coordinate systems (JCSs)") +
+      ylab("Maximal joint rotations (deg)") +
+      theme_classic() +
+      theme(axis.line.x = element_blank(),
+            axis.ticks.x = element_blank(),
+            axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+            axis.text = element_text(size = 10),
+            axis.title = element_text(size = 12))
+    
+    z_max <- ggplot() +
+      geom_line(data = temp_um, aes(x = time, y = prore_AB_max), color = "#FF4C00", linewidth = 1.5, alpha = .4) +
+      geom_line(data = temp_ca, aes(x = time, y = prore_AB_max), color = "#FF4C00", linewidth = 1.5, alpha = .8, linetype = "twodash") +
+      geom_line(data = temp_um, aes(x = time, y = prore_AJ_max), color = "#E7B10A", linewidth = 1.5, alpha = .4) +
+      geom_line(data = temp_ca, aes(x = time, y = prore_AJ_max), color = "#E7B10A", linewidth = 1.5, alpha = .8, linetype = "twodash") +
+      geom_line(data = temp_um, aes(x = time, y = buck_CBP_max), color = "#041E42", linewidth = 1.5, alpha = .4) +
+      geom_line(data = temp_ca, aes(x = time, y = buck_CBP_max), color = "#041E42", linewidth = 1.5, alpha = .8, linetype = "twodash") +
+      geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+      scale_x_continuous(expand = c(0, 0), limits = c(0, NA)) +
+      xlab("Percentage of ventilatory cycle") +
+      ylab("Joint rotations (deg)") +
+      theme_classic() +
+      theme(axis.line = element_line(colour = "black", linewidth = 0.5, linetype = "solid"), 
+            axis.text = element_text(size = 10),
+            axis.title = element_text(size = 12))
+    
+    z_real <- ggplot() +
+      geom_line(data = temp_um, aes(x = time, y = prore_AB_real), color = "#FF4C00", linewidth = 1.5, alpha = .4) + 
+      geom_line(data = temp_ca, aes(x = time, y = prore_AB_real), color = "#FF4C00", linewidth = 1.5, alpha = .8, linetype = "twodash") + 
+      geom_line(data = temp_um, aes(x = time, y = prore_AJ_real), color = "#E7B10A", linewidth = 1.5, alpha = .4) +
+      geom_line(data = temp_ca, aes(x = time, y = prore_AJ_real), color = "#E7B10A", linewidth = 1.5, alpha = .8, linetype = "twodash") +
+      geom_line(data = temp_um, aes(x = time, y = buck_CBP_real), color = "#041E42", linewidth = 1.5, alpha = .4) +
+      geom_line(data = temp_ca, aes(x = time, y = buck_CBP_real), color = "#041E42", linewidth = 1.5, alpha = .8, linetype = "twodash") +
+      geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+      scale_x_continuous(expand = c(0, 0), limits = c(0, NA)) +
+      xlab("Percentage of ventilatory cycle") +
+      ylab("Joint rotations (deg)") +
+      theme_classic() +
+      theme(axis.line = element_line(colour = "black", linewidth = 0.5, linetype = "solid"), 
+            axis.text = element_text(size = 10),
+            axis.title = element_text(size = 12))
+    
+    z_bar <- ggplot() +
+      geom_bar(data = bar_data, aes(x = jcs, y = oROM_max_z, fill = jcs), stat = "identity", alpha = .3) +
+      geom_text(data = bar_data, aes(x = jcs, y = oROM_max_z, label = oROM_max_z), vjust = ifelse(bar_data$oROM_max_z > 0, 1, -1), size = 2, colour = "black") +
+      geom_bar(data = bar_data, aes(x = jcs, y = oROM_real_z, fill = jcs), stat = "identity", alpha = .8) +
+      scale_fill_manual(name = "Types of JCS", values = c("#FF4C00", "#E7B10A", "#041E42")) +
+      geom_text(data = bar_data, aes(x = jcs, y = oROM_real_z, label = oROM_real_z), vjust = ifelse(bar_data$oROM_real_z > 0, 1, -0.5), size = 2, colour = "black") +
+      geom_hline(yintercept = 0, linetype = "solid", color = "black", size = 1) + 
+      xlab("Joint coordinate systems (JCSs)") +
+      ylab("Maximal joint rotations (deg)") +
+      theme_classic() +
+      theme(axis.line.x = element_blank(),
+            axis.ticks.x = element_blank(),
+            axis.line.y = element_line(colour = "black", linewidth = 0.5, linetype = "solid"),
+            axis.text = element_text(size = 10),
+            axis.title = element_text(size = 12))
+    
+    p <- ggarrange(x_max, x_real, x_bar,
+                   y_max, y_real, y_bar,
+                   z_max, z_real, z_bar,
+                   ncol = 3, nrow = 3,
+                   labels = c("A", "B", "C",
+                              "D", "E", "F",
+                              "G", "H", "I"),
+                   common.legend = TRUE, legend = "bottom")
+    
+    ggsave(plot = p, dpi = 600, bg = "white", 
+           filename = paste0("bird_", Rib_names[((i+1)/3)], seg_names[[d]][[1]][((i+1)/3)], ".png"), 
+           device = "png", width = 22, heigh = 28, units = "cm")
+  }
+}
+
+# combine max values of oROM for supplementary information and for SIMM chapter
+#AB setup
+oROM_AB_vrs <- data.frame() %>%
+  rbind(cj_vrs_AB_bar_data, ij_vrs_AB_bar_data)
+oROM_AB_vrs <-cbind(oROM_AB_vrs, "JCS" = "AB", "MT" = "vrs")
+
+oROM_AB_rs <- data.frame() %>%
+  rbind(cj_rs_AB_bar_data, ij_rs_AB_bar_data)
+oROM_AB_rs <-cbind(oROM_AB_rs, "JCS" = "AB", "MT" = "rs")
+
+oROM_AB_r <- data.frame() %>%
+  rbind(cj_r_AB_bar_data, ij_r_AB_bar_data)
+oROM_AB_r <-cbind(oROM_AB_r, "JCS" = "AB", "MT" = "r")
+
+#AJ setup
+oROM_AJ_vrs <- data.frame() %>%
+  rbind(cj_vrs_AJ_bar_data, ij_vrs_AJ_bar_data)
+oROM_AJ_vrs <-cbind(oROM_AJ_vrs, "JCS" = "AJ", "MT" = "vrs")
+
+oROM_AJ_rs <- data.frame() %>%
+  rbind(cj_rs_AJ_bar_data, ij_rs_AJ_bar_data)
+oROM_AJ_rs <-cbind(oROM_AJ_rs, "JCS" = "AJ", "MT" = "rs")
+
+oROM_AJ_r <- data.frame() %>%
+  rbind(cj_r_AJ_bar_data, ij_r_AJ_bar_data)
+oROM_AJ_r <-cbind(oROM_AJ_r, "JCS" = "AJ", "MT" = "r")
+
+#CBP setup
+oROM_CBP_vrs <- data.frame() %>%
+  rbind(cj_vrs_CBP_bar_data, ij_vrs_CBP_bar_data)
+oROM_CBP_vrs <-cbind(oROM_CBP_vrs, "JCS" = "CBP", "MT" = "vrs")
+
+oROM_CBP_rs <- data.frame() %>%
+  rbind(cj_rs_CBP_bar_data, ij_rs_CBP_bar_data)
+oROM_CBP_rs <-cbind(oROM_CBP_rs, "JCS" = "CBP", "MT" = "rs")
+
+oROM_CBP_r <- data.frame() %>%
+  rbind(cj_r_CBP_bar_data, ij_r_CBP_bar_data)
+oROM_CBP_r <-cbind(oROM_CBP_r, "JCS" = "CBP", "MT" = "r")
+
+
+#combine all oROM into one table
+oROM <- rbind(oROM_AB_vrs, oROM_AJ_vrs, oROM_CBP_vrs,
+              oROM_AB_rs, oROM_AJ_rs, oROM_CBP_rs,
+              oROM_AB_r, oROM_AJ_r, oROM_CBP_r)
+oROM <- oROM[order(oROM$jnt, oROM$MT),]
+
+#export csv file
+write.csv(oROM, "oROM_bird.csv", row.names = FALSE)

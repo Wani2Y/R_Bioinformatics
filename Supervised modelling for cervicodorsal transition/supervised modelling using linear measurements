@@ -1,0 +1,3061 @@
+# title: "**Classify presacrals using supervisory models**"
+# project for: "Characterizing cervicodorsal transition quantitatively"
+# author: "Wani2Y"
+# first created: "28/10/2020"
+# last modified: "13/03/2023"
+
+#load libraries
+library(tidyverse)
+library(dplyr)
+library(psych)
+library(randomForest)
+library(Boruta)
+library(MASS)
+library(naivebayes)
+library(caret)
+library(InformationValue)
+library(yardstick)
+library(ggplot2)
+library(ggpubr)
+
+#load raw data
+raw_extant <- read_csv ("raw_extant.csv") %>% 
+  as_tibble()
+raw_fossil <- read_csv("raw_fossil.csv") %>%
+  as_tibble()
+
+# examine the contrast of each variable in extant archosaurs
+  #segregate and select raw variables
+  raw_archo <- raw_extant %>%
+    dplyr::select(taxa, pgroup, cl, cah, caw, hp, appp, lpost, lpre, f_length)
+  raw_bird <- raw_extant[1:222,] %>%
+    dplyr::select(taxa, pgroup, cl, cah, caw, hp, appp, lpost, lpre, f_length)
+  raw_croc <- raw_extant[223:306,] %>%
+    dplyr::select(taxa, pgroup, cl, cah, caw, hp, appp, lpost, lpre, f_length)
+
+#segregate datasets by taxa to examine contrasts between cervicals and dorsals
+  C_australis <- raw_bird %>%
+    filter(taxa == "Casuarius_australis_UAMZ_1369")
+  D_novaehollandiae <- raw_bird %>%
+    filter(taxa == "Dromaius_novaehollandiae_UAMZ_unnumbered")
+  R_americana_1 <- raw_bird %>%
+    filter(taxa == "Rhea_americana_UAMZ_5019")
+  R_americana_2 <- raw_bird %>%
+    filter(taxa == "Rhea_americana_UAMZ_1368")
+  S_camelus <- raw_bird %>%
+    filter(taxa == "Struthio_camelus_UAMZ_7159")
+  O_columbianus_1 <- raw_bird %>%
+    filter(taxa == "Olor_columbianus_UAMZ_5229")
+  O_columbianus_2 <- raw_bird %>%
+    filter(taxa == "Olor_columbianus_UAMZ_5230")
+  A_herodias <- raw_bird %>%
+    filter(taxa == "Ardea_herodias_UAMZ_4048")
+  G_immer <- raw_bird %>%
+    filter(taxa == "Gavia_immer_UAMZ_1793")
+  B_virginianus <- raw_bird %>%
+    filter(taxa == "Bubo_virginianus_UAMZ_6846")
+  H_leucocephalus <- raw_bird %>%
+    filter(taxa == "Haliaeetus_leucocephalus_UAMZ_5028")
+  C_crocodilus_1 <- raw_croc %>%
+    filter(taxa == "Caiman_crocodilus_ROM_R_275")
+  C_crocodilus_2 <- raw_croc %>%
+    filter(taxa == "Caiman_crocodilus_ROM_R_7707")
+  C_crocodilus_3 <- raw_croc %>%
+    filter(taxa == "Caiman_crocodilus_UAMZ_unnumbered")
+  A_mississippiensis_1 <- raw_croc %>%
+    filter(taxa == "Alligator_mississippiensis_ROM_R_395")
+  A_mississippiensis_2 <- raw_croc %>%
+    filter(taxa == "Alligator_mississippiensis_ROM_R_4406")
+  
+  
+#select variable to standardize measurements
+#bird datasets
+par(mfrow = c(2, 4))
+for(i in 3:ncol(C_australis)){
+  hist(C_australis[[i]], main = colnames(C_australis[i]), 
+       xlab = colnames(C_australis[i]), col = blues9)
+}
+for(i in 3:ncol(D_novaehollandiae)){
+  hist(D_novaehollandiae[[i]], main = colnames(D_novaehollandiae[i]), 
+       xlab = colnames(D_novaehollandiae[i]), col = blues9)
+}
+for(i in 3:ncol(R_americana_1)){
+  hist(R_americana_1[[i]], main = colnames(R_americana_1[i]), 
+       xlab = colnames(R_americana_1[i]), col = blues9)
+}
+for(i in 3:ncol(R_americana_2)){
+  hist(R_americana_2[[i]], main = colnames(R_americana_2[i]), 
+       xlab = colnames(R_americana_2[i]), col = blues9)
+}
+for(i in 3:ncol(S_camelus)){
+  hist(S_camelus[[i]], main = colnames(S_camelus[i]), 
+       xlab = colnames(S_camelus[i]), col = blues9)
+}
+for(i in 3:ncol(O_columbianus_1)){
+  hist(O_columbianus_1[[i]], main = colnames(O_columbianus_1[i]), 
+       xlab = colnames(O_columbianus_1[i]), col = blues9)
+}
+for(i in 3:ncol(O_columbianus_2)){
+  hist(O_columbianus_2[[i]], main = colnames(O_columbianus_2[i]), 
+       xlab = colnames(O_columbianus_2[i]), col = blues9)
+}
+for(i in 3:ncol(O_columbianus_2)){
+  hist(O_columbianus_2[[i]], main = colnames(O_columbianus_2[i]), 
+       xlab = colnames(O_columbianus_2[i]), col = blues9)
+}
+for(i in 3:ncol(A_herodias)){
+  hist(A_herodias[[i]], main = colnames(A_herodias[i]), 
+       xlab = colnames(A_herodias[i]), col = blues9)
+}
+for(i in 3:ncol(G_immer)){
+  hist(G_immer[[i]], main = colnames(G_immer[i]), 
+       xlab = colnames(G_immer[i]), col = blues9)
+}
+for(i in 3:ncol(B_virginianus)){
+  hist(B_virginianus[[i]], main = colnames(B_virginianus[i]), 
+       xlab = colnames(B_virginianus[i]), col = blues9)
+}
+for(i in 3:ncol(H_leucocephalus)){
+  hist(H_leucocephalus[[i]], main = colnames(H_leucocephalus[i]), 
+       xlab = colnames(H_leucocephalus[i]), col = blues9)
+}
+
+#crocodylian datasets
+for(i in 3:ncol(C_crocodilus_1)){
+  hist(C_crocodilus_1[[i]], main = colnames(C_crocodilus_1[i]), 
+       xlab = colnames(C_crocodilus_1[i]), col = blues9)
+}
+for(i in 3:ncol(C_crocodilus_2)){
+  hist(C_crocodilus_2[[i]], main = colnames(C_crocodilus_2[i]), 
+       xlab = colnames(C_crocodilus_2[i]), col = blues9)
+}
+for(i in 3:ncol(C_crocodilus_3)){
+  hist(C_crocodilus_3[[i]], main = colnames(C_crocodilus_3[i]), 
+       xlab = colnames(C_crocodilus_3[i]), col = blues9)
+}
+for(i in 3:ncol(A_mississippiensis_1)){
+  hist(A_mississippiensis_1[[i]], main = colnames(A_mississippiensis_1[i]), 
+       xlab = colnames(A_mississippiensis_1[i]), col = blues9)
+}
+for(i in 3:ncol(A_mississippiensis_2)){
+  hist(A_mississippiensis_2[[i]], main = colnames(A_mississippiensis_2[i]), 
+       xlab = colnames(A_mississippiensis_2[i]), col = blues9)
+}
+
+# femur length is a typical option to standardize measurements 
+# but femur may not be preserved in fossil taxa
+# though a variable that approximate a constant value is not available, 
+# caw and appp are the two most centralized variables.
+# caw is selected to standardize both birds and crocodylian datasets.
+
+#standardize measurements
+#standardize by femoral length
+#combined datasets
+stan_archo_f <- data.frame(
+  taxa = raw_archo$taxa,
+  pgroup = raw_archo$pgroup %>% as.factor(),
+  cl_f = round(raw_archo$cl/raw_archo$f_length, digits = 5),
+  cah_f = round(raw_archo$cah/raw_archo$f_length, digits = 5),
+  caw_f = round(raw_archo$caw/raw_archo$f_length, digits = 5),
+  hp_f = round(raw_archo$hp/raw_archo$f_length, digits = 5),
+  appp_f = round(raw_archo$appp/raw_archo$f_length, digits = 5),
+  lpre_f = round(raw_archo$lpre/raw_archo$f_length, digits = 5),
+  lpost_f = round(raw_archo$lpost/raw_archo$f_length, digits = 5) 
+)
+#bird datasets
+stan_bird_f <- data.frame(
+  taxa = raw_bird$taxa,
+  pgroup = raw_bird$pgroup %>% as.factor(),
+  cl_f = round(raw_bird$cl/raw_bird$f_length, digits = 5),
+  cah_f = round(raw_bird$cah/raw_bird$f_length, digits = 5),
+  caw_f = round(raw_bird$caw/raw_bird$f_length, digits = 5),
+  hp_f = round(raw_bird$hp/raw_bird$f_length, digits = 5),
+  appp_f = round(raw_bird$appp/raw_bird$f_length, digits = 5),
+  lpre_f = round(raw_bird$lpre/raw_bird$f_length, digits = 5),
+  lpost_f = round(raw_bird$lpost/raw_bird$f_length, digits = 5) 
+)    
+#crocodylian datasets
+stan_croc_f <- data.frame(
+  taxa = raw_croc$taxa,
+  pgroup = raw_croc$pgroup %>% as.factor(),
+  cl_f = round(raw_croc$cl/raw_croc$f_length, digits = 5),
+  cah_f = round(raw_croc$cah/raw_croc$f_length, digits = 5),
+  caw_f = round(raw_croc$caw/raw_croc$f_length, digits = 5),
+  hp_f = round(raw_croc$hp/raw_croc$f_length, digits = 5),
+  appp_f = round(raw_croc$appp/raw_croc$f_length, digits = 5),
+  lpre_f = round(raw_croc$lpre/raw_croc$f_length, digits = 5),
+  lpost_f = round(raw_croc$lpost/raw_croc$f_length, digits = 5) 
+)   
+
+#standardize datasets by caw
+#combined datasets
+stan_archo_caw <- data.frame(
+  taxa = raw_archo$taxa,
+  pgroup = raw_archo$pgroup %>% as.factor(),
+  cl_caw = round(raw_archo$cl/raw_archo$caw, digits = 5),
+  cah_caw = round(raw_archo$cah/raw_archo$caw, digits = 5),
+  hp_caw = round(raw_archo$hp/raw_archo$caw, digits = 5),
+  appp_caw = round(raw_archo$appp/raw_archo$caw, digits = 5),      
+  lpre_caw = round(raw_archo$lpre/raw_archo$caw, digits = 5),
+  lpost_caw = round(raw_archo$lpost/raw_archo$caw, digits = 5) 
+)
+#bird datasets
+stan_bird_caw <- data.frame(
+  taxa = raw_bird$taxa,
+  pgroup = raw_bird$pgroup %>% as.factor(),
+  cl_caw = round(raw_bird$cl/raw_bird$caw, digits = 5),
+  cah_caw = round(raw_bird$cah/raw_bird$caw, digits = 5),
+  hp_caw = round(raw_bird$hp/raw_bird$caw, digits = 5),
+  appp_caw = round(raw_bird$appp/raw_bird$caw, digits = 5),
+  lpre_caw = round(raw_bird$lpre/raw_bird$caw, digits = 5),
+  lpost_caw = round(raw_bird$lpost/raw_bird$caw, digits = 5) 
+)
+#crocodylian datasets
+stan_croc_caw <- data.frame(
+  taxa = raw_croc$taxa,
+  pgroup = raw_croc$pgroup %>% as.factor(),
+  cl_caw = round(raw_croc$cl/raw_croc$caw, digits = 5),
+  cah_caw = round(raw_croc$cah/raw_croc$caw, digits = 5),
+  hp_caw = round(raw_croc$hp/raw_croc$caw, digits = 5),
+  appp_caw = round(raw_croc$appp/raw_croc$caw, digits = 5),
+  lpre_caw = round(raw_croc$lpre/raw_croc$caw, digits = 5),
+  lpost_caw = round(raw_croc$lpost/raw_croc$caw, digits = 5) 
+)
+#fossil dataset
+fossil_caw <- data.frame(
+  taxa = raw_fossil$taxa,
+  p_num = raw_fossil$p_num,
+  pgroup = raw_fossil$pgroup %>% as.factor(),
+  t2_dp = raw_fossil$t2_dp %>% as.factor(),
+  cl_caw = round(raw_fossil$cl/raw_fossil$caw, digits = 5),
+  cah_caw = round(raw_fossil$cah/raw_fossil$caw, digits = 5),
+  hp_caw = round(raw_fossil$hp/raw_fossil$caw, digits = 5),
+  appp_caw = round(raw_fossil$appp/raw_fossil$caw, digits = 5),
+  lpre_caw = round(raw_fossil$lpre/raw_fossil$caw, digits = 5),
+  lpost_caw = round(raw_fossil$lpost/raw_fossil$caw, digits = 5) 
+)
+
+#create training and validation datasets
+set.seed(256)
+#archosaur datasets
+valid_archo_f <- stan_archo_f %>%
+  sample_frac(0.3)
+train_archo_f <- anti_join(stan_archo_f, valid_archo_f)
+valid_archo_caw <- stan_archo_caw %>%
+  sample_frac(0.3)
+train_archo_caw <- anti_join(stan_archo_caw, valid_archo_caw)
+#bird datasets
+valid_bird_f <- stan_bird_f %>%
+  sample_frac(0.3)
+train_bird_f <- anti_join(stan_bird_f, valid_bird_f)
+valid_bird_caw <- stan_bird_caw %>%
+  sample_frac(0.3)
+train_bird_caw <- anti_join(stan_bird_caw, valid_bird_caw)
+#crocodylian datasets
+valid_croc_f <- stan_croc_f %>%
+  sample_frac(0.3)
+train_croc_f <- anti_join(stan_croc_f, valid_croc_f)
+valid_croc_caw <- stan_croc_caw %>%
+  sample_frac(0.3)
+train_croc_caw <- anti_join(stan_croc_caw, valid_croc_caw)
+
+#separate cervicals(C) from dorsals(D)
+#examine the C:D ratio
+table(train_archo_f$pgroup)
+table(train_bird_f$pgroup)
+table(train_croc_f$pgroup)
+table(train_archo_caw$pgroup)
+table(train_bird_caw$pgroup)
+table(train_croc_caw$pgroup)
+
+#the ratio is not 1:1 in all datasets, and the number of observations are low. 
+#Resampling and upsampling are needed.    
+#divide training datasets into only cervicals/dorsals
+#archosaur datasets
+c_archo_f <- train_archo_f[which(train_archo_f$pgroup == "C"), ]
+d_archo_f <- train_archo_f[which(train_archo_f$pgroup == "D"), ]
+c_archo_caw <- train_archo_caw[which(train_archo_caw$pgroup == "C"), ]
+d_archo_caw <- train_archo_caw[which(train_archo_caw$pgroup == "D"), ]
+#bird datasets
+c_bird_f <- train_bird_f[which(train_bird_f$pgroup == "C"), ]
+d_bird_f <- train_bird_f[which(train_bird_f$pgroup == "D"), ]
+c_bird_caw <- train_bird_caw[which(train_bird_caw$pgroup == "C"), ]
+d_bird_caw <- train_bird_caw[which(train_bird_caw$pgroup == "D"), ]
+#crocodylian datasets
+c_croc_f <- train_croc_f[which(train_croc_f$pgroup == "C"), ]
+d_croc_f <- train_croc_f[which(train_croc_f$pgroup == "D"), ]
+c_croc_caw <- train_croc_caw[which(train_croc_caw$pgroup == "C"), ]
+d_croc_caw <- train_croc_caw[which(train_croc_caw$pgroup == "D"), ]
+
+# resample datasets to augment sample size and even the distributions between 
+#cervicals and dorsals at the expanse of signal/noise ratio
+set.seed(256)
+#archosaur datasets
+resam_c_archo_f <- c_archo_f[sample(nrow(c_archo_f), 1000, 
+                                    replace = TRUE), ]
+resam_d_archo_f <- d_archo_f[sample(nrow(d_archo_f), 1000, 
+                                    replace = TRUE), ]
+resam_c_archo_caw <- c_archo_caw[sample(nrow(c_archo_caw), 1000, 
+                                        replace = TRUE), ]
+resam_d_archo_caw <- d_archo_caw[sample(nrow(d_archo_caw), 1000, 
+                                        replace = TRUE), ]
+resam_archo_f <- rbind(resam_c_archo_f, resam_d_archo_f)
+resam_archo_caw <- rbind(resam_c_archo_caw, resam_d_archo_caw)
+#bird datasets
+resam_c_bird_f <- c_bird_f[sample(nrow(c_bird_f), 1000, 
+                                  replace = TRUE), ]
+resam_d_bird_f <- d_bird_f[sample(nrow(d_bird_f), 1000, 
+                                  replace = TRUE), ]
+resam_c_bird_caw <- c_bird_caw[sample(nrow(c_bird_caw), 1000, 
+                                      replace = TRUE), ]
+resam_d_bird_caw <- d_bird_caw[sample(nrow(d_bird_caw), 1000, 
+                                      replace = TRUE), ]
+resam_bird_f <- rbind(resam_c_bird_f, resam_d_bird_f)
+resam_bird_caw <- rbind(resam_c_bird_caw, resam_d_bird_caw)
+#crocodylian datasets
+resam_c_croc_f <- c_croc_f[sample(nrow(c_croc_f), 1000, 
+                                  replace = TRUE), ]
+resam_d_croc_f <- d_croc_f[sample(nrow(d_croc_f), 1000, 
+                                  replace = TRUE), ]
+resam_c_croc_caw <- c_croc_caw[sample(nrow(c_croc_caw), 1000, 
+                                      replace = TRUE), ]
+resam_d_croc_caw <- d_croc_caw[sample(nrow(d_croc_caw), 1000, 
+                                      replace = TRUE), ]
+resam_croc_f <- rbind(resam_c_croc_f, resam_d_croc_f)
+resam_croc_caw <- rbind(resam_c_croc_caw, resam_d_croc_caw)
+  
+#examine the quality of the resembled datasets
+#normality testing is circumvented by upsampling and the central limit theorem
+#multicolinearity test
+#archosaur datasets
+pairs.panels(resam_archo_f, scale = TRUE)
+pairs.panels(resam_archo_caw, scale = TRUE)
+#bird datasets
+pairs.panels(resam_bird_f, scale = TRUE)
+pairs.panels(resam_bird_caw, scale = TRUE)
+#crocodylian datasets
+pairs.panels(resam_croc_f, scale = TRUE)
+pairs.panels(resam_croc_caw, scale = TRUE)
+
+# the following variables are independent enough (r <= 0.65) to be used 
+# together, all else should be used individually in logistic regressions    
+#archosaur datasets
+#cl_f, caw_f, lpre_f(lpost_f); 
+#cl_caw, cah_caw, hp_caw, lpre_caw(lpost_caw)
+#bird datasets
+#cl_f, caw_f, hp_f, lpre_f(lpost_f); 
+#cl_caw, cah_caw, hp_caw, lpre_caw(lpost_caw)    
+#crocodylian datasets
+#cl_f, cah_f, caw_f, hp_f, lpre_f(lpost_f); 
+#cah_caw, hp_caw, lpre_caw(lpost_caw)
+#cl_f, caw_f, lpre_f(lpost_f); 
+#cah_caw, hp_caw, lpre_caw(lpost_caw) 
+#are the consistent variables among all three datasets
+
+#examine the segregation/contrasts of variables
+par(mfrow = c(1, 1))
+#archosaur datasets
+#standardize by femur length
+plot(pgroup ~ cl_f, data = resam_archo_f)
+plot(pgroup ~ cah_f, data = resam_archo_f)
+plot(pgroup ~ hp_f, data = resam_archo_f)
+plot(pgroup ~ appp_f, data = resam_archo_f)
+plot(pgroup ~ lpre_f, data = resam_archo_f)
+plot(pgroup ~ lpost_f, data = resam_archo_f)
+#standardize by caw
+plot(pgroup ~ cl_caw, data = resam_archo_caw)
+plot(pgroup ~ cah_caw, data = resam_archo_caw)
+plot(pgroup ~ hp_caw, data = resam_archo_caw)
+plot(pgroup ~ appp_caw, data = resam_archo_caw)
+plot(pgroup ~ lpre_caw, data = resam_archo_caw)
+plot(pgroup ~ lpost_caw, data = resam_archo_caw)
+
+#bird datasets
+#standardize by femur length
+plot(pgroup ~ cl_f, data = resam_bird_f)
+plot(pgroup ~ cah_f, data = resam_bird_f)
+plot(pgroup ~ hp_f, data = resam_bird_f)
+plot(pgroup ~ appp_f, data = resam_bird_f)
+plot(pgroup ~ lpre_f, data = resam_bird_f)
+plot(pgroup ~ lpost_f, data = resam_bird_f)
+#standardize by caw
+plot(pgroup ~ cl_caw, data = resam_bird_caw)
+plot(pgroup ~ cah_caw, data = resam_bird_caw)
+plot(pgroup ~ hp_caw, data = resam_bird_caw)
+plot(pgroup ~ appp_caw, data = resam_bird_caw)
+plot(pgroup ~ lpre_caw, data = resam_bird_caw)
+plot(pgroup ~ lpost_caw, data = resam_bird_caw)
+
+#crocodylian datasets
+#standardize by femur length
+plot(pgroup ~ cl_f, data = resam_croc_f)
+plot(pgroup ~ cah_f, data = resam_croc_f)
+plot(pgroup ~ hp_f, data = resam_croc_f)
+plot(pgroup ~ appp_f, data = resam_croc_f)
+plot(pgroup ~ lpre_f, data = resam_croc_f)
+plot(pgroup ~ lpost_f, data = resam_croc_f)
+#standardize by caw
+plot(pgroup ~ cl_caw, data = resam_croc_caw)
+plot(pgroup ~ cah_caw, data = resam_croc_caw)
+plot(pgroup ~ hp_caw, data = resam_croc_caw)
+plot(pgroup ~ appp_caw, data = resam_croc_caw)
+plot(pgroup ~ lpre_caw, data = resam_croc_caw)
+plot(pgroup ~ lpost_caw, data = resam_croc_caw)
+#other crocodylian datasets, variables show good contrasts, 
+#and crocodyilan datasets still have decent contrasts. 
+  
+#examine the importance of variables in separating cervicals from dorsals
+#standardize by femur length
+#using Boruta method
+#archosaur datasets
+boruta_result_archo_f <- Boruta(pgroup ~  
+                                  cl_f + cah_f + hp_f + appp_f + 
+                                  lpre_f + lpost_f, 
+                                data = resam_archo_f, doTrace = 2)
+print(boruta_result_archo_f)
+boruta_importance_archo_f <- 
+  names(boruta_result_archo_f$finalDecision[boruta_result_archo_f$finalDecision 
+                                            %in% c("Confirmed", "Tentative")])
+print(boruta_importance_archo_f)
+par(mfrow = c(1,1))
+plot(boruta_result_archo_f, cex.axis = .8, las = 2, xlab = "", 
+     main = "Significant archosaur Variables (f) Estimated by Boruta Method")
+
+#bird datasets
+boruta_result_bird_f <- Boruta(pgroup ~  cl_f + cah_f + hp_f + appp_f + 
+                                 lpre_f + lpost_f, 
+                               data = resam_bird_f, doTrace = 2)
+print(boruta_result_bird_f)
+boruta_importance_bird_f <- 
+  names(boruta_result_bird_f$finalDecision[boruta_result_bird_f$finalDecision
+                                           %in% c("Confirmed", "Tentative")])
+print(boruta_importance_bird_f)
+par(mfrow = c(1,1))
+plot(boruta_result_bird_f, cex.axis = .8, las = 2, xlab = "", 
+     main = "Significant bird Variables (f) Estimated by Boruta Method")
+
+#crocodylian datasets
+boruta_result_croc_f <- Boruta(pgroup ~  cl_f + cah_f + hp_f + appp_f + 
+                                 lpre_f + lpost_f, data = resam_croc_f, doTrace = 2)
+print(boruta_result_archo_f)
+boruta_importance_croc_f <- 
+  names(boruta_result_croc_f$finalDecision[boruta_result_croc_f$finalDecision
+                                           %in% c("Confirmed", "Tentative")])
+print(boruta_importance_croc_f)
+par(mfrow = c(1,1))
+plot(boruta_result_croc_f, cex.axis = .8, las = 2, xlab = "", 
+     main = "Significant crocodylian Variables (f) Estimated by Boruta Method")
+
+#standardize by caw
+#using Boruta method
+#archosaur dataset
+boruta_result_archo_caw <- Boruta(pgroup ~  cl_caw + cah_caw + hp_caw + 
+                                    appp_caw + lpre_caw + lpost_caw, 
+                                  data = resam_archo_caw, doTrace = 2)
+print(boruta_result_archo_caw)
+boruta_importance_archo_caw <- 
+  names(boruta_result_archo_caw$finalDecision[boruta_result_archo_caw$finalDecision 
+                                              %in% c("Confirmed", "Tentative")])
+print(boruta_importance_archo_caw)
+par(mfrow = c(1,1))
+plot(boruta_result_archo_caw, cex.axis = .8, las = 2, xlab = "", main = "Significant archosaur Variables (caw) Estimated by Boruta Method")
+
+#bird dataset
+boruta_result_bird_caw <- Boruta(pgroup ~  cl_caw + cah_caw + hp_caw + appp_caw + lpre_caw + lpost_caw, data = resam_bird_caw, doTrace = 2)
+print(boruta_result_bird_caw)
+boruta_importance_bird_caw <- names(boruta_result_bird_caw$finalDecision[boruta_result_bird_caw$finalDecision %in% c("Confirmed", "Tentative")])
+print(boruta_importance_bird_caw)
+par(mfrow = c(1,1))
+plot(boruta_result_bird_caw, cex.axis = .8, las = 2, xlab = "", main = "Significant bird Variables (caw) Estimated by Boruta Method")
+
+#crocodylian dataset
+boruta_result_croc_caw <- Boruta(pgroup ~  cl_caw + cah_caw + hp_caw + appp_caw + lpre_caw + lpost_caw, data = resam_croc_caw, doTrace = 2)
+print(boruta_result_archo_caw)
+boruta_importance_croc_caw <- names(boruta_result_croc_caw$finalDecision[boruta_result_croc_caw$finalDecision %in% c("Confirmed", "Tentative")])
+print(boruta_importance_croc_caw)
+par(mfrow = c(1,1))
+plot(boruta_result_croc_caw, cex.axis = .8, las = 2, xlab = "", main = "Significant crocodylian Variables (caw) Estimated by Boruta Method")
+#despite the numeric difference in MeanDecreaseGini, all variables are considered informative.
+#variables with low MeanDecreaseGini may be dropped in the future when model selections are performed
+
+#create a list to store the models with over 80% accuracy
+#only the ones standardized by caw will be used in predictions in fossils
+cd_f_models <- list()
+cd_caw_models <- list()
+
+#construct linear discriminant analyses
+#standardized by f_length
+  #archosaur dataset
+  #construct multivaiate lda models
+  lda_m_archo_f_3var <- lda(pgroup ~ cl_f + caw_f + lpre_f, data = resam_archo_f)
+  #examine the loadings
+  lda_m_archo_f_3var
+  #validate using the test dataset
+  lda_p_archo_f_3var <- predict(lda_m_archo_f_3var, newdata = valid_archo_f)
+  valid_archo_f <- cbind(valid_archo_f, "3var_class" = lda_p_archo_f_3var$class, "3var_posterior" = lda_p_archo_f_3var$posterior)
+  #create a confusion matrix
+  tab_lda_archo_f_3var <- table(factor(valid_archo_f$`3var_class`), factor(valid_archo_f$pgroup))
+  cm_lda_archo_f_3var <- caret::confusionMatrix(tab_lda_archo_f_3var)
+  cm_lda_archo_f_3var$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in model list for final prediction
+  cd_f_models$lda_mod_archo_3var_f <- lda_m_archo_f_3var
+
+  #construct univariable lda models
+  predictor <- colnames(resam_archo_f[3:9])
+  lda_archo_f_1var_m <- lapply(1:length(predictor), function(i) lda(as.formula(paste0("pgroup ~ ", predictor[i])), data = resam_archo_f))
+  names(lda_archo_f_1var_m) <- predictor
+  #validate using the test dataset
+  #cl_f
+  #validate using the test dataset
+  lda_p_archo_f_cl <- predict(lda_archo_f_1var_m$cl_f, newdata = valid_archo_f)
+  valid_archo_f <- cbind(valid_archo_f, "cl_f_class" = lda_p_archo_f_cl$class, "cl_f_posterior" = lda_p_archo_f_cl$posterior)
+  #create a confusion matrix
+  tab_lda_archo_f_cl <- table(factor(valid_archo_f$cl_f_class), factor(valid_archo_f$pgroup))
+  cm_lda_archo_f_cl <- caret::confusionMatrix(tab_lda_archo_f_cl)
+  cm_lda_archo_f_cl$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #cah_f
+  #validate using the test dataset
+  lda_p_archo_f_cah <- predict(lda_archo_f_1var_m$cah_f, newdata = valid_archo_f)
+  valid_archo_f <- cbind(valid_archo_f, "cah_f_class" = lda_p_archo_f_cah$class, "cah_f_posterior" = lda_p_archo_f_cah$posterior)
+  #create a confusion matrix
+  tab_lda_archo_f_cah <- table(factor(valid_archo_f$cah_f_class), factor(valid_archo_f$pgroup))
+  cm_lda_archo_f_cah <- caret::confusionMatrix(tab_lda_archo_f_cah)
+  cm_lda_archo_f_cah$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #caw_f
+  #validate using the test dataset
+  lda_p_archo_f_caw <- predict(lda_archo_f_1var_m$caw_f, newdata = valid_archo_f)
+  valid_archo_f <- cbind(valid_archo_f, "caw_f_class" = lda_p_archo_f_caw$class, "caw_f_posterior" = lda_p_archo_f_caw$posterior)
+  #create a confusion matrix
+  tab_lda_archo_f_caw <- table(factor(valid_archo_f$caw_f_class), factor(valid_archo_f$pgroup))
+  cm_lda_archo_f_caw <- caret::confusionMatrix(tab_lda_archo_f_caw)
+  cm_lda_archo_f_caw$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_f_models$lda_mod_archo_caw_f <- lda_archo_f_1var_m$caw_f
+
+  #hp_f
+  #validate using the test dataset
+  lda_p_archo_f_hp <- predict(lda_archo_f_1var_m$hp_f, newdata = valid_archo_f)
+  valid_archo_f <- cbind(valid_archo_f, "hp_f_class" = lda_p_archo_f_hp$class, "hp_f_posterior" = lda_p_archo_f_hp$posterior)
+  #create a confusion matrix
+  tab_lda_archo_f_hp <- table(factor(valid_archo_f$hp_f_class), factor(valid_archo_f$pgroup))
+  cm_lda_archo_f_hp <- caret::confusionMatrix(tab_lda_archo_f_hp)
+  cm_lda_archo_f_hp$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #appp_f
+  #validate using the test dataset
+  lda_p_archo_f_appp <- predict(lda_archo_f_1var_m$appp_f, newdata = valid_archo_f)
+  valid_archo_f <- cbind(valid_archo_f, "appp_f_class" = lda_p_archo_f_appp$class, "appp_f_posterior" = lda_p_archo_f_appp$posterior)
+  #create a confusion matrix
+  tab_lda_archo_f_appp <- table(factor(valid_archo_f$appp_f_class), factor(valid_archo_f$pgroup))
+  cm_lda_archo_f_appp <- caret::confusionMatrix(tab_lda_archo_f_appp)
+  cm_lda_archo_f_appp$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #lpre_f
+  #validate using the test dataset
+  lda_p_archo_f_lpre <- predict(lda_archo_f_1var_m$lpre_f, newdata = valid_archo_f)
+  valid_archo_f <- cbind(valid_archo_f, "lpre_f_class" = lda_p_archo_f_lpre$class, "lpre_f_posterior" = lda_p_archo_f_lpre$posterior)
+  #create a confusion matrix
+  tab_lda_archo_f_lpre <- table(factor(valid_archo_f$lpre_f_class), factor(valid_archo_f$pgroup))
+  cm_lda_archo_f_lpre <- caret::confusionMatrix(tab_lda_archo_f_lpre)
+  cm_lda_archo_f_lpre$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #lpost_f
+  #validate using the test dataset
+  lda_p_archo_f_lpost <- predict(lda_archo_f_1var_m$lpost_f, newdata = valid_archo_f)
+  valid_archo_f <- cbind(valid_archo_f, "lpost_f_class" = lda_p_archo_f_lpost$class, "lpost_f_posterior" = lda_p_archo_f_lpost$posterior)
+  #create a confusion matrix
+  tab_lda_archo_f_lpost <- table(factor(valid_archo_f$lpost_f_class), factor(valid_archo_f$pgroup))
+  cm_lda_archo_f_lpost <- caret::confusionMatrix(tab_lda_archo_f_lpost)
+  cm_lda_archo_f_lpost$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #bird dataset
+  lda_m_bird_f_3var <- lda(pgroup ~ cl_f + caw_f + lpre_f, data = resam_bird_f)
+  #examine the loadings
+  lda_m_bird_f_3var
+  #validate using the test dataset
+  lda_p_bird_f_3var <- predict(lda_m_bird_f_3var, newdata = valid_bird_f)
+  valid_bird_f <- cbind(valid_bird_f, "3var_class" = lda_p_bird_f_3var$class, "3var_posterior" = lda_p_bird_f_3var$posterior)
+  #create a confusion matrix
+  tab_lda_bird_f_3var <- table(factor(valid_bird_f$`3var_class`), factor(valid_bird_f$pgroup))
+  cm_lda_bird_f_3var <- caret::confusionMatrix(tab_lda_bird_f_3var)
+  cm_lda_bird_f_3var$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_f_models$lda_mod_bird_3var_f <- lda_m_bird_f_3var
+  
+  #construct univariable lda models
+  predictor <- colnames(resam_bird_f[3:9])
+  lda_bird_f_1var_m <- lapply(1:length(predictor), function(i) lda(as.formula(paste0("pgroup ~ ", predictor[i])), data = resam_bird_f))
+  names(lda_bird_f_1var_m) <- predictor
+  #validate using the test dataset
+  
+  #cl_f
+  #validate using the test dataset
+  lda_p_bird_f_cl <- predict(lda_bird_f_1var_m$cl_f, newdata = valid_bird_f)
+  valid_bird_f <- cbind(valid_bird_f, "cl_f_class" = lda_p_bird_f_cl$class, "cl_f_posterior" = lda_p_bird_f_cl$posterior)
+  #create a confusion matrix
+  tab_lda_bird_f_cl <- table(factor(valid_bird_f$cl_f_class), factor(valid_bird_f$pgroup))
+  cm_lda_bird_f_cl <- caret::confusionMatrix(tab_lda_bird_f_cl)
+  cm_lda_bird_f_cl$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #cah_f
+  #validate using the test dataset
+  lda_p_bird_f_cah <- predict(lda_bird_f_1var_m$cah_f, newdata = valid_bird_f)
+  valid_bird_f <- cbind(valid_bird_f, "cah_f_class" = lda_p_bird_f_cah$class, "cah_f_posterior" = lda_p_bird_f_cah$posterior)
+  #create a confusion matrix
+  tab_lda_bird_f_cah <- table(factor(valid_bird_f$cah_f_class), factor(valid_bird_f$pgroup))
+  cm_lda_bird_f_cah <- caret::confusionMatrix(tab_lda_bird_f_cah)
+  cm_lda_bird_f_cah$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #caw_f
+  #validate using the test dataset
+  lda_p_bird_f_caw <- predict(lda_bird_f_1var_m$caw_f, newdata = valid_bird_f)
+  valid_bird_f <- cbind(valid_bird_f, "caw_f_class" = lda_p_bird_f_caw$class, "caw_f_posterior" = lda_p_bird_f_caw$posterior)
+  #create a confusion matrix
+  tab_lda_bird_f_caw <- table(factor(valid_bird_f$caw_f_class), factor(valid_bird_f$pgroup))
+  cm_lda_bird_f_caw <- caret::confusionMatrix(tab_lda_bird_f_caw)
+  cm_lda_bird_f_caw$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_f_models$lda_mod_bird_caw_f <- lda_bird_f_1var_m$caw_f
+  
+  #hp_f
+  #validate using the test dataset
+  lda_p_bird_f_hp <- predict(lda_bird_f_1var_m$hp_f, newdata = valid_bird_f)
+  valid_bird_f <- cbind(valid_bird_f, "hp_f_class" = lda_p_bird_f_hp$class, "hp_f_posterior" = lda_p_bird_f_hp$posterior)
+  #create a confusion matrix
+  tab_lda_bird_f_hp <- table(factor(valid_bird_f$hp_f_class), factor(valid_bird_f$pgroup))
+  cm_lda_bird_f_hp <- caret::confusionMatrix(tab_lda_bird_f_hp)
+  cm_lda_bird_f_hp$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #appp_f
+  #validate using the test dataset
+  lda_p_bird_f_appp <- predict(lda_bird_f_1var_m$appp_f, newdata = valid_bird_f)
+  valid_bird_f <- cbind(valid_bird_f, "appp_f_class" = lda_p_bird_f_appp$class, "appp_f_posterior" = lda_p_bird_f_appp$posterior)
+  #create a confusion matrix
+  tab_lda_bird_f_appp <- table(factor(valid_bird_f$appp_f_class), factor(valid_bird_f$pgroup))
+  cm_lda_bird_f_appp <- caret::confusionMatrix(tab_lda_bird_f_appp)
+  cm_lda_bird_f_appp$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #lpre_f
+  #validate using the test dataset
+  lda_p_bird_f_lpre <- predict(lda_bird_f_1var_m$lpre_f, newdata = valid_bird_f)
+  valid_bird_f <- cbind(valid_bird_f, "lpre_f_class" = lda_p_bird_f_lpre$class, "lpre_f_posterior" = lda_p_bird_f_lpre$posterior)
+  #create a confusion matrix
+  tab_lda_bird_f_lpre <- table(factor(valid_bird_f$lpre_f_class), factor(valid_bird_f$pgroup))
+  cm_lda_bird_f_lpre <- caret::confusionMatrix(tab_lda_bird_f_lpre)
+  cm_lda_bird_f_lpre$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #lpost_f
+  #validate using the test dataset
+  lda_p_bird_f_lpost <- predict(lda_bird_f_1var_m$lpost_f, newdata = valid_bird_f)
+  valid_bird_f <- cbind(valid_bird_f, "lpost_f_class" = lda_p_bird_f_lpost$class, "lpost_f_posterior" = lda_p_bird_f_lpost$posterior)
+  #create a confusion matrix
+  tab_lda_bird_f_lpost <- table(factor(valid_bird_f$lpost_f_class), factor(valid_bird_f$pgroup))
+  cm_lda_bird_f_lpost <- caret::confusionMatrix(tab_lda_bird_f_lpost)
+  cm_lda_bird_f_lpost$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  
+  #crocodylian dataset
+  lda_m_croc_f_3var <- lda(pgroup ~ cl_f + caw_f + lpre_f, data = resam_croc_f)
+  #examine the loadings
+  lda_m_croc_f_3var
+  #validate using the test dataset
+  lda_p_croc_f <- predict(lda_m_croc_f_3var, newdata = valid_croc_f)
+  valid_croc_f <- cbind(valid_croc_f, lda_p_croc_f)
+  #create a confusion matrix
+  tab_lda_croc_f <- table(factor(valid_croc_f$class), factor(valid_croc_f$pgroup))
+  cm_lda_croc_f_3var <- caret::confusionMatrix(tab_lda_croc_f)
+  cm_lda_croc_f_3var$overall["Accuracy"]
+  #Accurarcy is 1 which may be related to upsampling. 
+  #accuracy over 80%, the model is placed in the model list
+  cd_f_models$lda_mod_croc_3var_f <- lda_m_croc_f_3var
+
+  #construct univariable lda models
+  predictor <- colnames(resam_croc_f[3:9])
+  lda_croc_f_1var_m <- lapply(1:length(predictor), function(i) lda(as.formula(paste0("pgroup ~ ", predictor[i])), data = resam_croc_f))
+  names(lda_croc_f_1var_m) <- predictor
+  #validate using the test dataset
+  
+  #cl_f
+  #validate using the test dataset
+  lda_p_croc_f_cl <- predict(lda_croc_f_1var_m$cl_f, newdata = valid_croc_f)
+  valid_croc_f <- cbind(valid_croc_f, "cl_f_class" = lda_p_croc_f_cl$class, "cl_f_posterior" = lda_p_croc_f_cl$posterior)
+  #create a confusion matrix
+  tab_lda_croc_f_cl <- table(factor(valid_croc_f$cl_f_class), factor(valid_croc_f$pgroup))
+  cm_lda_croc_f_cl <- caret::confusionMatrix(tab_lda_bird_f_cl)
+  cm_lda_croc_f_cl$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #cah_f
+  #validate using the test dataset
+  lda_p_croc_f_cah <- predict(lda_croc_f_1var_m$cah_f, newdata = valid_croc_f)
+  valid_croc_f <- cbind(valid_croc_f, "cah_f_class" = lda_p_croc_f_cah$class, "cah_f_posterior" = lda_p_croc_f_cah$posterior)
+  #create a confusion matrix
+  tab_lda_croc_f_cah <- table(factor(valid_croc_f$cah_f_class), factor(valid_croc_f$pgroup))
+  cm_lda_croc_f_cah <- caret::confusionMatrix(tab_lda_bird_f_cah)
+  cm_lda_croc_f_cah$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+
+  #caw_f
+  #validate using the test dataset
+  lda_p_croc_f_caw <- predict(lda_croc_f_1var_m$caw_f, newdata = valid_croc_f)
+  valid_croc_f <- cbind(valid_croc_f, "caw_f_class" = lda_p_croc_f_caw$class, "caw_f_posterior" = lda_p_croc_f_caw$posterior)
+  #create a confusion matrix
+  tab_lda_croc_f_caw <- table(factor(valid_croc_f$caw_f_class), factor(valid_croc_f$pgroup))
+  cm_lda_croc_f_caw <- caret::confusionMatrix(tab_lda_croc_f_caw)
+  cm_lda_croc_f_caw$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #hp_f
+  #validate using the test dataset
+  lda_p_croc_f_hp <- predict(lda_croc_f_1var_m$hp_f, newdata = valid_croc_f)
+  valid_croc_f <- cbind(valid_croc_f, "hp_f_class" = lda_p_croc_f_hp$class, "hp_f_posterior" = lda_p_croc_f_hp$posterior)
+  #create a confusion matrix
+  tab_lda_croc_f_hp <- table(factor(valid_croc_f$hp_f_class), factor(valid_croc_f$pgroup))
+  cm_lda_croc_f_hp <- caret::confusionMatrix(tab_lda_croc_f_hp)
+  cm_lda_croc_f_hp$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #appp_f
+  #validate using the test dataset
+  lda_p_croc_f_appp <- predict(lda_croc_f_1var_m$appp_f, newdata = valid_croc_f)
+  valid_croc_f <- cbind(valid_croc_f, "appp_f_class" = lda_p_croc_f_appp$class, "appp_f_posterior" = lda_p_croc_f_appp$posterior)
+  #create a confusion matrix
+  tab_lda_croc_f_appp <- table(factor(valid_croc_f$appp_f_class), factor(valid_croc_f$pgroup))
+  cm_lda_croc_f_appp <- caret::confusionMatrix(tab_lda_croc_f_appp)
+  cm_lda_croc_f_appp$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_f_models$lda_mod_croc_appp_f <- lda_croc_f_1var_m$appp_f
+  
+  #lpre_f
+  #validate using the test dataset
+  lda_p_croc_f_lpre <- predict(lda_croc_f_1var_m$lpre_f, newdata = valid_croc_f)
+  valid_croc_f <- cbind(valid_croc_f, "lpre_f_class" = lda_p_croc_f_lpre$class, "lpre_f_posterior" = lda_p_croc_f_lpre$posterior)
+  #create a confusion matrix
+  tab_lda_croc_f_lpre <- table(factor(valid_croc_f$lpre_f_class), factor(valid_croc_f$pgroup))
+  cm_lda_croc_f_lpre <- caret::confusionMatrix(tab_lda_croc_f_lpre)
+  cm_lda_croc_f_lpre$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_f_models$lda_mod_croc_lpre_f <- lda_croc_f_1var_m$lpre_f
+  
+  #lpost_f
+  #validate using the test dataset
+  lda_p_croc_f_lpost <- predict(lda_croc_f_1var_m$lpost_f, newdata = valid_croc_f)
+  valid_croc_f <- cbind(valid_croc_f, "lpost_f_class" = lda_p_croc_f_lpost$class, "lpost_f_posterior" = lda_p_croc_f_lpost$posterior)
+  #create a confusion matrix
+  tab_lda_croc_f_lpost <- table(factor(valid_croc_f$lpost_f_class), factor(valid_croc_f$pgroup))
+  cm_lda_croc_f_lpost <- caret::confusionMatrix(tab_lda_croc_f_lpost)
+  cm_lda_croc_f_lpost$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_f_models$lda_mod_croc_lpost_f <- lda_croc_f_1var_m$lpost_f
+  
+  
+#standardize by caw
+  #archosaur dataset
+  #construct multivaiate lda models
+  lda_m_archo_caw_3var <- lda(pgroup ~ cah_caw + hp_caw + lpre_caw, data = resam_archo_caw)
+  #examine the loadings
+  lda_m_archo_caw_3var
+  #validate using the test dataset
+  lda_p_archo_caw_3var <- predict(lda_m_archo_caw_3var, newdata = valid_archo_caw)
+  valid_archo_caw <- cbind(valid_archo_caw, "3var_class" = lda_p_archo_caw_3var$class, "3var_posterior" = lda_p_archo_caw_3var$posterior)
+  #create a confusion matrix
+  tab_lda_archo_caw_3var <- table(factor(valid_archo_caw$`3var_class`), factor(valid_archo_caw$pgroup))
+  cm_lda_archo_caw_3var <- caret::confusionMatrix(tab_lda_archo_caw_3var)
+  cm_lda_archo_caw_3var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #construct univariable lda models
+  predictor <- colnames(resam_archo_caw[3:8])
+  lda_archo_caw_1var_m <- lapply(1:length(predictor), function(i) lda(as.formula(paste0("pgroup ~ ", predictor[i])), data = resam_archo_caw))
+  names(lda_archo_caw_1var_m) <- predictor
+  
+  #cl_caw
+  #validate using the test dataset
+  lda_p_archo_caw_cl <- predict(lda_archo_caw_1var_m$cl_caw, newdata = valid_archo_caw)
+  valid_archo_caw <- cbind(valid_archo_caw, "cl_caw_class" = lda_p_archo_caw_cl$class, "cl_caw_posterior" = lda_p_archo_caw_cl$posterior)
+  #create a confusion matrix
+  tab_lda_archo_caw_cl <- table(factor(valid_archo_caw$cl_caw_class), factor(valid_archo_caw$pgroup))
+  cm_lda_archo_caw_cl <- caret::confusionMatrix(tab_lda_archo_caw_cl)
+  cm_lda_archo_caw_cl$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #cah_caw
+  #validate using the test dataset
+  lda_p_archo_caw_cah <- predict(lda_archo_caw_1var_m$cah_caw, newdata = valid_archo_caw)
+  valid_archo_caw <- cbind(valid_archo_caw, "cah_caw_class" = lda_p_archo_caw_cah$class, "cah_caw_posterior" = lda_p_archo_caw_cah$posterior)
+  #create a confusion matrix
+  tab_lda_archo_caw_cah <- table(factor(valid_archo_caw$cah_caw_class), factor(valid_archo_caw$pgroup))
+  cm_lda_archo_caw_cah <- caret::confusionMatrix(tab_lda_archo_caw_cah)
+  cm_lda_archo_caw_cah$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #hp_caw
+  #validate using the test dataset
+  lda_p_archo_caw_hp <- predict(lda_archo_caw_1var_m$hp_caw, newdata = valid_archo_caw)
+  valid_archo_caw <- cbind(valid_archo_caw, "hp_caw_class" = lda_p_archo_caw_hp$class, "hp_caw_posterior" = lda_p_archo_caw_hp$posterior)
+  #create a confusion matrix
+  tab_lda_archo_caw_hp <- table(factor(valid_archo_caw$hp_caw_class), factor(valid_archo_caw$pgroup))
+  cm_lda_archo_caw_hp <- caret::confusionMatrix(tab_lda_archo_caw_hp)
+  cm_lda_archo_caw_hp$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #appp_caw
+  #validate using the test dataset
+  lda_p_archo_caw_appp <- predict(lda_archo_caw_1var_m$appp_caw, newdata = valid_archo_caw)
+  valid_archo_caw <- cbind(valid_archo_caw, "appp_caw_class" = lda_p_archo_caw_appp$class, "appp_caw_posterior" = lda_p_archo_caw_appp$posterior)
+  #create a confusion matrix
+  tab_lda_archo_caw_appp <- table(factor(valid_archo_caw$appp_caw_class), factor(valid_archo_caw$pgroup))
+  cm_lda_archo_caw_appp <- caret::confusionMatrix(tab_lda_archo_caw_appp)
+  cm_lda_archo_caw_appp$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #lpre_caw
+  #validate using the test dataset
+  lda_p_archo_caw_lpre <- predict(lda_archo_caw_1var_m$lpre_caw, newdata = valid_archo_caw)
+  valid_archo_caw <- cbind(valid_archo_caw, "lpre_caw_class" = lda_p_archo_caw_lpre$class, "lpre_caw_posterior" = lda_p_archo_caw_lpre$posterior)
+  #create a confusion matrix
+  tab_lda_archo_caw_lpre <- table(factor(valid_archo_caw$lpre_caw_class), factor(valid_archo_caw$pgroup))
+  cm_lda_archo_caw_lpre <- caret::confusionMatrix(tab_lda_archo_caw_lpre)
+  cm_lda_archo_caw_lpre$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #lpost_caw
+  #validate using the test dataset
+  lda_p_archo_caw_lpost <- predict(lda_archo_caw_1var_m$lpost_caw, newdata = valid_archo_caw)
+  valid_archo_caw <- cbind(valid_archo_caw, "lpost_caw_class" = lda_p_archo_caw_lpost$class, "lpost_caw_posterior" = lda_p_archo_caw_lpost$posterior)
+  #create a confusion matrix
+  tab_lda_archo_caw_lpost <- table(factor(valid_archo_caw$lpost_caw_class), factor(valid_archo_caw$pgroup))
+  cm_lda_archo_caw_lpost <- caret::confusionMatrix(tab_lda_archo_caw_lpost)
+  cm_lda_archo_caw_lpost$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #bird dataset
+  lda_m_bird_caw_3var <- lda(pgroup ~ cah_caw + hp_caw + lpre_caw, data = resam_bird_caw)
+  #examine the loadings
+  lda_m_bird_caw_3var
+  #validate using the test dataset
+  lda_p_bird_caw_3var <- predict(lda_m_bird_caw_3var, newdata = valid_bird_caw)
+  valid_bird_caw <- cbind(valid_bird_caw, "3var_class" = lda_p_bird_caw_3var$class, "3var_posterior" = lda_p_bird_caw_3var$posterior)
+  #create a confusion matrix
+  tab_lda_bird_caw_3var <- table(factor(valid_bird_caw$`3var_class`), factor(valid_bird_caw$pgroup))
+  cm_lda_bird_caw_3var <- caret::confusionMatrix(tab_lda_bird_caw_3var)
+  cm_lda_bird_caw_3var$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_caw_models$lda_mod_bird_3var_caw <- lda_m_bird_caw_3var
+  
+  #construct univariable lda models
+  predictor <- colnames(resam_bird_caw[3:8])
+  lda_bird_caw_1var_m <- lapply(1:length(predictor), function(i) lda(as.formula(paste0("pgroup ~ ", predictor[i])), data = resam_bird_caw))
+  names(lda_bird_caw_1var_m) <- predictor
+  #validate using the test dataset
+  
+  #cl_caw
+  #validate using the test dataset
+  lda_p_bird_caw_cl <- predict(lda_bird_caw_1var_m$cl_caw, newdata = valid_bird_caw)
+  valid_bird_caw <- cbind(valid_bird_caw, "cl_caw_class" = lda_p_bird_caw_cl$class, "cl_caw_posterior" = lda_p_bird_caw_cl$posterior)
+  #create a confusion matrix
+  tab_lda_bird_caw_cl <- table(factor(valid_bird_caw$cl_caw_class), factor(valid_bird_caw$pgroup))
+  cm_lda_bird_caw_cl <- caret::confusionMatrix(tab_lda_bird_caw_cl)
+  cm_lda_bird_caw_cl$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #cah_caw
+  #validate using the test dataset
+  lda_p_bird_caw_cah <- predict(lda_bird_caw_1var_m$cah_caw, newdata = valid_bird_caw)
+  valid_bird_caw <- cbind(valid_bird_caw, "cah_caw_class" = lda_p_bird_caw_cah$class, "cah_caw_posterior" = lda_p_bird_caw_cah$posterior)
+  #create a confusion matrix
+  tab_lda_bird_caw_cah <- table(factor(valid_bird_caw$cah_caw_class), factor(valid_bird_caw$pgroup))
+  cm_lda_bird_caw_cah <- caret::confusionMatrix(tab_lda_bird_caw_cah)
+  cm_lda_bird_caw_cah$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #hp_caw
+  #validate using the test dataset
+  lda_p_bird_caw_hp <- predict(lda_bird_caw_1var_m$hp_caw, newdata = valid_bird_caw)
+  valid_bird_caw <- cbind(valid_bird_caw, "hp_caw_class" = lda_p_bird_caw_hp$class, "hp_caw_posterior" = lda_p_bird_caw_hp$posterior)
+  #create a confusion matrix
+  tab_lda_bird_caw_hp <- table(factor(valid_bird_caw$hp_caw_class), factor(valid_bird_caw$pgroup))
+  cm_lda_bird_caw_hp <- caret::confusionMatrix(tab_lda_bird_caw_hp)
+  cm_lda_bird_caw_hp$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #appp_caw
+  #validate using the test dataset
+  lda_p_bird_caw_appp <- predict(lda_bird_caw_1var_m$appp_caw, newdata = valid_bird_caw)
+  valid_bird_caw <- cbind(valid_bird_caw, "appp_caw_class" = lda_p_bird_caw_appp$class, "appp_caw_posterior" = lda_p_bird_caw_appp$posterior)
+  #create a confusion matrix
+  tab_lda_bird_caw_appp <- table(factor(valid_bird_caw$appp_caw_class), factor(valid_bird_caw$pgroup))
+  cm_lda_bird_caw_appp <- caret::confusionMatrix(tab_lda_bird_caw_appp)
+  cm_lda_bird_caw_appp$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #lpre_caw
+  #validate using the test dataset
+  lda_p_bird_caw_lpre <- predict(lda_bird_caw_1var_m$lpre_caw, newdata = valid_bird_caw)
+  valid_bird_caw <- cbind(valid_bird_caw, "lpre_caw_class" = lda_p_bird_caw_lpre$class, "lpre_caw_posterior" = lda_p_bird_caw_lpre$posterior)
+  #create a confusion matrix
+  tab_lda_bird_caw_lpre <- table(factor(valid_bird_caw$lpre_caw_class), factor(valid_bird_caw$pgroup))
+  cm_lda_bird_caw_lpre <- caret::confusionMatrix(tab_lda_bird_caw_lpre)
+  cm_lda_bird_caw_lpre$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_caw_models$lda_mod_bird_lpre_caw <- lda_bird_caw_1var_m$lpre_caw
+  
+  #lpost_caw
+  #validate using the test dataset
+  lda_p_bird_caw_lpost <- predict(lda_bird_caw_1var_m$lpost_caw, newdata = valid_bird_caw)
+  valid_bird_caw <- cbind(valid_bird_caw, "lpost_caw_class" = lda_p_bird_caw_lpost$class, "lpost_caw_posterior" = lda_p_bird_caw_lpost$posterior)
+  #create a confusion matrix
+  tab_lda_bird_caw_lpost <- table(factor(valid_bird_caw$lpost_caw_class), factor(valid_bird_caw$pgroup))
+  cm_lda_bird_caw_lpost <- caret::confusionMatrix(tab_lda_bird_caw_lpost)
+  cm_lda_bird_caw_lpost$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_caw_models$lda_mod_bird_lpost_caw <- lda_bird_caw_1var_m$lpost_caw
+  
+  
+  #crocodylian dataset
+  lda_m_croc_caw_3var <- lda(pgroup ~ cah_caw + hp_caw + lpre_caw, data = resam_croc_caw)
+  #examine the loadings
+  lda_m_croc_caw_3var
+  #validate using the test dataset
+  lda_p_croc_caw <- predict(lda_m_croc_caw_3var, newdata = valid_croc_caw)
+  valid_croc_caw <- cbind(valid_croc_caw, lda_p_croc_caw)
+  #create a confusion matrix
+  tab_lda_croc_caw <- table(factor(valid_croc_caw$class), factor(valid_croc_caw$pgroup))
+  cm_lda_croc_caw_3var <- caret::confusionMatrix(tab_lda_croc_caw)
+  cm_lda_croc_caw_3var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #construct univariable lda models
+  predictor <- colnames(resam_croc_caw[3:8])
+  lda_croc_caw_1var_m <- lapply(1:length(predictor), function(i) lda(as.formula(paste0("pgroup ~ ", predictor[i])), data = resam_croc_caw))
+  names(lda_croc_caw_1var_m) <- predictor
+  #validate using the test dataset
+  
+  #cl_caw
+  #validate using the test dataset
+  lda_p_croc_caw_cl <- predict(lda_croc_caw_1var_m$cl_caw, newdata = valid_croc_caw)
+  valid_croc_caw <- cbind(valid_croc_caw, "cl_caw_class" = lda_p_croc_caw_cl$class, "cl_caw_posterior" = lda_p_croc_caw_cl$posterior)
+  #create a confusion matrix
+  tab_lda_croc_caw_cl <- table(factor(valid_croc_caw$cl_caw_class), factor(valid_croc_caw$pgroup))
+  cm_lda_croc_caw_cl <- caret::confusionMatrix(tab_lda_bird_caw_cl)
+  cm_lda_croc_caw_cl$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #cah_caw
+  #validate using the test dataset
+  lda_p_croc_caw_cah <- predict(lda_croc_caw_1var_m$cah_caw, newdata = valid_croc_caw)
+  valid_croc_caw <- cbind(valid_croc_caw, "cah_caw_class" = lda_p_croc_caw_cah$class, "cah_caw_posterior" = lda_p_croc_caw_cah$posterior)
+  #create a confusion matrix
+  tab_lda_croc_caw_cah <- table(factor(valid_croc_caw$cah_caw_class), factor(valid_croc_caw$pgroup))
+  cm_lda_croc_caw_cah <- caret::confusionMatrix(tab_lda_bird_caw_cah)
+  cm_lda_croc_caw_cah$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #hp_caw
+  #validate using the test dataset
+  lda_p_croc_caw_hp <- predict(lda_croc_caw_1var_m$hp_caw, newdata = valid_croc_caw)
+  valid_croc_caw <- cbind(valid_croc_caw, "hp_caw_class" = lda_p_croc_caw_hp$class, "hp_caw_posterior" = lda_p_croc_caw_hp$posterior)
+  #create a confusion matrix
+  tab_lda_croc_caw_hp <- table(factor(valid_croc_caw$hp_caw_class), factor(valid_croc_caw$pgroup))
+  cm_lda_croc_caw_hp <- caret::confusionMatrix(tab_lda_croc_caw_hp)
+  cm_lda_croc_caw_hp$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #appp_caw
+  #validate using the test dataset
+  lda_p_croc_caw_appp <- predict(lda_croc_caw_1var_m$appp_caw, newdata = valid_croc_caw)
+  valid_croc_caw <- cbind(valid_croc_caw, "appp_caw_class" = lda_p_croc_caw_appp$class, "appp_caw_posterior" = lda_p_croc_caw_appp$posterior)
+  #create a confusion matrix
+  tab_lda_croc_caw_appp <- table(factor(valid_croc_caw$appp_caw_class), factor(valid_croc_caw$pgroup))
+  cm_lda_croc_caw_appp <- caret::confusionMatrix(tab_lda_croc_caw_appp)
+  cm_lda_croc_caw_appp$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #lpre_caw
+  #validate using the test dataset
+  lda_p_croc_caw_lpre <- predict(lda_croc_caw_1var_m$lpre_caw, newdata = valid_croc_caw)
+  valid_croc_caw <- cbind(valid_croc_caw, "lpre_caw_class" = lda_p_croc_caw_lpre$class, "lpre_caw_posterior" = lda_p_croc_caw_lpre$posterior)
+  #create a confusion matrix
+  tab_lda_croc_caw_lpre <- table(factor(valid_croc_caw$lpre_caw_class), factor(valid_croc_caw$pgroup))
+  cm_lda_croc_caw_lpre <- caret::confusionMatrix(tab_lda_croc_caw_lpre)
+  cm_lda_croc_caw_lpre$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #lpost_caw
+  #validate using the test dataset
+  lda_p_croc_caw_lpost <- predict(lda_croc_caw_1var_m$lpost_caw, newdata = valid_croc_caw)
+  valid_croc_caw <- cbind(valid_croc_caw, "lpost_caw_class" = lda_p_croc_caw_lpost$class, "lpost_caw_posterior" = lda_p_croc_caw_lpost$posterior)
+  #create a confusion matrix
+  tab_lda_croc_caw_lpost <- table(factor(valid_croc_caw$lpost_caw_class), factor(valid_croc_caw$pgroup))
+  cm_lda_croc_caw_lpost <- caret::confusionMatrix(tab_lda_croc_caw_lpost)
+  cm_lda_croc_caw_lpost$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+
+#construct logistic regression models
+#standardized by f_length
+  #construct multivariate model
+  #archosaur dataset
+  logi_m_archo_f_3var <- glm(pgroup ~ cl_f + caw_f + lpre_f, data = resam_archo_f, family = binomial(link = "logit"))
+  #validate using the test dataset
+  logi_p_archo_f_3var <- predict(logi_m_archo_f_3var, newdata = valid_archo_f)
+  valid_archo_f$logi_p_archo_f_3var <- logi_p_archo_f_3var
+  valid_archo_f$logi_class_archo_f_3var <- ifelse(logi_p_archo_f_3var > 0.50, "D", "C")
+  #estimate the model fit
+  AIC(logi_m_archo_f_3var)
+  BIC(logi_m_archo_f_3var)
+  #create a confusion matrix
+  tab_logi_archo_f_3var <- table(factor(valid_archo_f$logi_class_archo_f_3var), factor(valid_archo_f$pgroup))
+  cm_logi_archo_f_3var <- caret::confusionMatrix(tab_logi_archo_f_3var)
+  cm_logi_archo_f_3var$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_f_models$logi_archo_3var_f <- logi_m_archo_f_3var
+  
+  #construct univariable logistic regression models
+  predictor <- colnames(resam_archo_f[3:9])
+  logi_archo_f_1var_models <- lapply(1:length(predictor), function(i) glm(as.formula(paste0("pgroup ~ ", predictor[i])), data = resam_archo_f, family = binomial))
+  names(logi_archo_f_1var_models) <- predictor
+  #validate using the test dataset
+  #cl_f
+  logi_p_archo_f_cl_1var <- predict(logi_archo_f_1var_models$cl_f, newdata = valid_archo_f)
+  valid_archo_f$logi_p_archo_f_cl_1var <- logi_p_archo_f_cl_1var
+  valid_archo_f$logi_class_archo_f_cl_1var <- ifelse(logi_p_archo_f_cl_1var > 0.50, "D", "C")
+  tab_logi_archo_f_cl_1var <- table(factor(valid_archo_f$logi_class_archo_f_cl_1var), factor(valid_archo_f$pgroup))
+  cm_logi_archo_f_cl_1var <- caret::confusionMatrix(tab_logi_archo_f_cl_1var)
+  cm_logi_archo_f_cl_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #cah_f
+  logi_p_archo_f_cah_1var <- predict(logi_archo_f_1var_models$cah_f, newdata = valid_archo_f)
+  valid_archo_f$logi_p_archo_f_cah_1var <- logi_p_archo_f_cah_1var
+  valid_archo_f$logi_class_archo_f_cah_1var <- ifelse(logi_p_archo_f_cah_1var > 0.50, "D", "C")
+  tab_logi_archo_f_cah_1var <- table(factor(valid_archo_f$logi_class_archo_f_cah_1var), factor(valid_archo_f$pgroup))
+  cm_logi_archo_f_cah_1var <- caret::confusionMatrix(tab_logi_archo_f_cah_1var)
+  cm_logi_archo_f_cah_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #caw_f
+  logi_p_archo_f_caw_1var <- predict(logi_archo_f_1var_models$caw_f, newdata = valid_archo_f)
+  valid_archo_f$logi_p_archo_f_caw_1var <- logi_p_archo_f_caw_1var
+  valid_archo_f$logi_class_archo_f_caw_1var <- ifelse(logi_p_archo_f_caw_1var > 0.50, "D", "C")
+  tab_logi_archo_f_caw_1var <- table(factor(valid_archo_f$logi_class_archo_f_caw_1var), factor(valid_archo_f$pgroup))
+  cm_logi_archo_f_caw_1var <- caret::confusionMatrix(tab_logi_archo_f_caw_1var)
+  cm_logi_archo_f_caw_1var$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_f_models$logi_archo_caw_f <- logi_archo_f_1var_models$caw_f
+  
+  #hp_f
+  logi_p_archo_f_hp_1var <- predict(logi_archo_f_1var_models$hp_f, newdata = valid_archo_f)
+  valid_archo_f$logi_p_archo_f_hp_1var <- logi_p_archo_f_hp_1var
+  valid_archo_f$logi_class_archo_f_hp_1var <- ifelse(logi_p_archo_f_hp_1var > 0.50, "D", "C")
+  tab_logi_archo_f_hp_1var <- table(factor(valid_archo_f$logi_class_archo_f_hp_1var), factor(valid_archo_f$pgroup))
+  cm_logi_archo_f_hp_1var <- caret::confusionMatrix(tab_logi_archo_f_hp_1var)
+  cm_logi_archo_f_hp_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #appp_f
+  logi_p_archo_f_appp_1var <- predict(logi_archo_f_1var_models$appp_f, newdata = valid_archo_f)
+  valid_archo_f$logi_p_archo_f_appp_1var <- logi_p_archo_f_appp_1var
+  valid_archo_f$logi_class_archo_f_appp_1var <- ifelse(logi_p_archo_f_appp_1var > 0.50, "D", "C")
+  u_factor <- union(valid_archo_f$logi_class_archo_f_appp_1var, valid_archo_f$pgroup)
+  
+  tab_logi_archo_f_appp_1var <- table(factor(valid_archo_f$logi_class_archo_f_appp_1var, levels = u_factor), 
+                                   factor(valid_archo_f$pgroup, levels = u_factor))
+  cm_logi_archo_f_appp_1var <- caret::confusionMatrix(tab_logi_archo_f_appp_1var)
+  cm_logi_archo_f_appp_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #lpre_f
+  logi_p_archo_f_lpre_1var <- predict(logi_archo_f_1var_models$lpre_f, newdata = valid_archo_f)
+  valid_archo_f$logi_p_archo_f_lpre_1var <- logi_p_archo_f_lpre_1var
+  valid_archo_f$logi_class_archo_f_lpre_1var <- ifelse(logi_p_archo_f_lpre_1var > 0.50, "D", "C")
+  tab_logi_archo_f_lpre_1var <- table(factor(valid_archo_f$logi_class_archo_f_lpre_1var), factor(valid_archo_f$pgroup))
+  cm_logi_archo_f_lpre_1var <- caret::confusionMatrix(tab_logi_archo_f_lpre_1var)
+  cm_logi_archo_f_lpre_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #lpost_f
+  logi_p_archo_f_lpost_1var <- predict(logi_archo_f_1var_models$lpost_f, newdata = valid_archo_f)
+  valid_archo_f$logi_p_archo_f_lpost_1var <- logi_p_archo_f_lpost_1var
+  valid_archo_f$logi_class_archo_f_lpost_1var <- ifelse(logi_p_archo_f_lpost_1var > 0.50, "D", "C")
+  tab_logi_archo_f_lpost_1var <- table(factor(valid_archo_f$logi_class_archo_f_lpost_1var), factor(valid_archo_f$pgroup))
+  cm_logi_archo_f_lpost_1var <- caret::confusionMatrix(tab_logi_archo_f_lpost_1var)
+  cm_logi_archo_f_lpost_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #bird dataset
+  #construct multivariate model
+  logi_m_bird_f_3var <- glm(pgroup ~ cl_f + caw_f + lpre_f, data = resam_bird_f, family = binomial(link = "logit"))
+  #validate using the test dataset
+  logi_p_bird_f_3var <- predict(logi_m_bird_f_3var, newdata = valid_bird_f)
+  valid_bird_f$logi_p_bird_f_3var <- logi_p_bird_f_3var
+  valid_bird_f$logi_class_bird_f_3var <- ifelse(logi_p_bird_f_3var > 0.50, "D", "C")
+  #estimate the model fit
+  AIC(logi_m_bird_f_3var)
+  BIC(logi_m_bird_f_3var)
+  #create a confusion matrix
+  tab_logi_bird_f_3var <- table(factor(valid_bird_f$logi_class_bird_f_3var), factor(valid_bird_f$pgroup))
+  cm_logi_bird_f_3var <- caret::confusionMatrix(tab_logi_bird_f_3var)
+  cm_logi_bird_f_3var$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_f_models$logi_bird_3var_f <- logi_m_bird_f_3var
+  
+  #construct univariable logistic regression models
+  predictor <- colnames(resam_bird_f[3:9])
+  logi_bird_f_1var_models <- lapply(1:length(predictor), function(i) glm(as.formula(paste0("pgroup ~ ", predictor[i])), data = resam_bird_f, family = binomial))
+  names(logi_bird_f_1var_models) <- predictor
+  #validate using the test dataset
+  #cl_f
+  logi_p_bird_f_cl_1var <- predict(logi_bird_f_1var_models$cl_f, newdata = valid_bird_f)
+  valid_bird_f$logi_p_bird_f_cl_1var <- logi_p_bird_f_cl_1var
+  valid_bird_f$logi_class_bird_f_cl_1var <- ifelse(logi_p_bird_f_cl_1var > 0.50, "D", "C")
+  u_factor <- union(valid_bird_f$logi_class_bird_f_cl_1var, valid_bird_f$pgroup)
+  tab_logi_bird_f_cl_1var <- table(factor(valid_bird_f$logi_class_bird_f_cl_1var, levels = u_factor), 
+                                   factor(valid_bird_f$pgroup, levels = u_factor))
+  cm_logi_bird_f_cl_1var <- caret::confusionMatrix(tab_logi_bird_f_cl_1var)
+  cm_logi_bird_f_cl_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #cah_f
+  logi_p_bird_f_cah_1var <- predict(logi_bird_f_1var_models$cah_f, newdata = valid_bird_f)
+  valid_bird_f$logi_p_bird_f_cah_1var <- logi_p_bird_f_cah_1var
+  valid_bird_f$logi_class_bird_f_cah_1var <- ifelse(logi_p_bird_f_cah_1var > 0.50, "D", "C")
+  tab_logi_bird_f_cah_1var <- table(factor(valid_bird_f$logi_class_bird_f_cah_1var), factor(valid_bird_f$pgroup))
+  cm_logi_bird_f_cah_1var <- caret::confusionMatrix(tab_logi_bird_f_cah_1var)
+  cm_logi_bird_f_cah_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #caw_f
+  logi_p_bird_f_caw_1var <- predict(logi_bird_f_1var_models$caw_f, newdata = valid_bird_f)
+  valid_bird_f$logi_p_bird_f_caw_1var <- logi_p_bird_f_caw_1var
+  valid_bird_f$logi_class_bird_f_caw_1var <- ifelse(logi_p_bird_f_caw_1var > 0.50, "D", "C")
+  tab_logi_bird_f_caw_1var <- table(factor(valid_bird_f$logi_class_bird_f_caw_1var), factor(valid_bird_f$pgroup))
+  cm_logi_bird_f_caw_1var <- caret::confusionMatrix(tab_logi_bird_f_caw_1var)
+  cm_logi_bird_f_caw_1var$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_f_models$logi_bird_caw_f <- logi_bird_f_1var_models$caw_f
+  
+  #hp_f
+  logi_p_bird_f_hp_1var <- predict(logi_bird_f_1var_models$hp_f, newdata = valid_bird_f)
+  valid_bird_f$logi_p_bird_f_hp_1var <- logi_p_bird_f_hp_1var
+  valid_bird_f$logi_class_bird_f_hp_1var <- ifelse(logi_p_bird_f_hp_1var > 0.50, "D", "C")
+  tab_logi_bird_f_hp_1var <- table(factor(valid_bird_f$logi_class_bird_f_hp_1var), factor(valid_bird_f$pgroup))
+  cm_logi_bird_f_hp_1var <- caret::confusionMatrix(tab_logi_bird_f_hp_1var)
+  cm_logi_bird_f_hp_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #appp_f
+  logi_p_bird_f_appp_1var <- predict(logi_bird_f_1var_models$appp_f, newdata = valid_bird_f)
+  valid_bird_f$logi_p_bird_f_appp_1var <- logi_p_bird_f_appp_1var
+  valid_bird_f$logi_class_bird_f_appp_1var <- ifelse(logi_p_bird_f_appp_1var > 0.50, "D", "C")
+  tab_logi_bird_f_appp_1var <- table(factor(valid_bird_f$logi_class_bird_f_appp_1var), factor(valid_bird_f$pgroup))
+  cm_logi_bird_f_appp_1var <- caret::confusionMatrix(tab_logi_bird_f_appp_1var)
+  cm_logi_bird_f_appp_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #lpre_f
+  logi_p_bird_f_lpre_1var <- predict(logi_bird_f_1var_models$lpre_f, newdata = valid_bird_f)
+  valid_bird_f$logi_p_bird_f_lpre_1var <- logi_p_bird_f_lpre_1var
+  valid_bird_f$logi_class_bird_f_lpre_1var <- ifelse(logi_p_bird_f_lpre_1var > 0.50, "D", "C")
+  tab_logi_bird_f_lpre_1var <- table(factor(valid_bird_f$logi_class_bird_f_lpre_1var), factor(valid_bird_f$pgroup))
+  cm_logi_bird_f_lpre_1var <- caret::confusionMatrix(tab_logi_bird_f_lpre_1var)
+  cm_logi_bird_f_lpre_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #lpost_f
+  logi_p_bird_f_lpost_1var <- predict(logi_bird_f_1var_models$lpost_f, newdata = valid_bird_f)
+  valid_bird_f$logi_p_bird_f_lpost_1var <- logi_p_bird_f_lpost_1var
+  valid_bird_f$logi_class_bird_f_lpost_1var <- ifelse(logi_p_bird_f_lpost_1var > 0.50, "D", "C")
+  tab_logi_bird_f_lpost_1var <- table(factor(valid_bird_f$logi_class_bird_f_lpost_1var), factor(valid_bird_f$pgroup))
+  cm_logi_bird_f_lpost_1var <- caret::confusionMatrix(tab_logi_bird_f_lpost_1var)
+  cm_logi_bird_f_lpost_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #crocodylian dataset
+  #construct multivariate model
+  logi_m_croc_f_3var <- glm(pgroup ~ cl_f + caw_f + lpre_f, data = resam_croc_f, family = binomial(link = "logit"))
+  #validate using the test dataset
+  logi_p_croc_f_3var <- predict(logi_m_croc_f_3var, newdata = valid_croc_f)
+  valid_croc_f$logi_p_croc_f_3var <- logi_p_croc_f_3var
+  valid_croc_f$logi_class_croc_f_3var <- ifelse(logi_p_croc_f_3var > 0.50, "D", "C")
+  #estimate the model fit
+  AIC(logi_m_croc_f_3var)
+  BIC(logi_m_croc_f_3var)
+  #create a confusion matrix
+  tab_logi_croc_f_3var <- table(factor(valid_croc_f$logi_class_croc_f_3var), factor(valid_croc_f$pgroup))
+  cm_logi_croc_f_3var <- caret::confusionMatrix(tab_logi_croc_f_3var)
+  cm_logi_croc_f_3var$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_f_models$logi_croc_3var_f <- logi_m_croc_f_3var
+  
+  #construct univariable logistic regression models
+  predictor <- colnames(resam_croc_f[3:9])
+  logi_croc_f_1var_models <- lapply(1:length(predictor), function(i) glm(as.formula(paste0("pgroup ~ ", predictor[i])), data = resam_croc_f, family = binomial))
+  names(logi_croc_f_1var_models) <- predictor
+  #validate using the test dataset
+  #cl_f
+  logi_p_croc_f_cl_1var <- predict(logi_croc_f_1var_models$cl_f, newdata = valid_croc_f)
+  valid_croc_f$logi_p_croc_f_cl_1var <- logi_p_croc_f_cl_1var
+  valid_croc_f$logi_class_croc_f_cl_1var <- ifelse(logi_p_croc_f_cl_1var > 0.50, "D", "C")
+  tab_logi_croc_f_cl_1var <- table(factor(valid_croc_f$logi_class_croc_f_cl_1var), factor(valid_croc_f$pgroup))
+  cm_logi_croc_f_cl_1var <- caret::confusionMatrix(tab_logi_croc_f_cl_1var)
+  cm_logi_croc_f_cl_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #cah_f
+  logi_p_croc_f_cah_1var <- predict(logi_croc_f_1var_models$cah_f, newdata = valid_croc_f)
+  valid_croc_f$logi_p_croc_f_cah_1var <- logi_p_croc_f_cah_1var
+  valid_croc_f$logi_class_croc_f_cah_1var <- ifelse(logi_p_croc_f_cah_1var > 0.50, "D", "C")
+  u_factor <- union(valid_croc_f$logi_class_croc_f_cah_1var, valid_croc_f$pgroup)
+  tab_logi_croc_f_cah_1var <- table(factor(valid_croc_f$logi_class_croc_f_cah_1var, levels = u_factor), 
+                                    factor(valid_croc_f$pgroup, levels = u_factor))
+  cm_logi_croc_f_cah_1var <- caret::confusionMatrix(tab_logi_croc_f_cah_1var)
+  cm_logi_croc_f_cah_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #caw_f
+  logi_p_croc_f_caw_1var <- predict(logi_croc_f_1var_models$caw_f, newdata = valid_croc_f)
+  valid_croc_f$logi_p_croc_f_caw_1var <- logi_p_croc_f_caw_1var
+  valid_croc_f$logi_class_croc_f_caw_1var <- ifelse(logi_p_croc_f_caw_1var > 0.50, "D", "C")
+  tab_logi_croc_f_caw_1var <- table(factor(valid_croc_f$logi_class_croc_f_caw_1var), factor(valid_croc_f$pgroup))
+  cm_logi_croc_f_caw_1var <- caret::confusionMatrix(tab_logi_croc_f_caw_1var)
+  cm_logi_croc_f_caw_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #hp_f
+  logi_p_croc_f_hp_1var <- predict(logi_croc_f_1var_models$hp_f, newdata = valid_croc_f)
+  valid_croc_f$logi_p_croc_f_hp_1var <- logi_p_croc_f_hp_1var
+  valid_croc_f$logi_class_croc_f_hp_1var <- ifelse(logi_p_croc_f_hp_1var > 0.50, "D", "C")
+  u_factor <- union(valid_croc_f$logi_class_croc_f_hp_1var, valid_croc_f$pgroup)
+  tab_logi_croc_f_hp_1var <- table(factor(valid_croc_f$logi_class_croc_f_hp_1var, levels = u_factor), 
+                                    factor(valid_croc_f$pgroup, levels = u_factor))
+  cm_logi_croc_f_hp_1var <- caret::confusionMatrix(tab_logi_croc_f_hp_1var)
+  cm_logi_croc_f_hp_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #appp_f
+  logi_p_croc_f_appp_1var <- predict(logi_croc_f_1var_models$appp_f, newdata = valid_croc_f)
+  valid_croc_f$logi_p_croc_f_appp_1var <- logi_p_croc_f_appp_1var
+  valid_croc_f$logi_class_croc_f_appp_1var <- ifelse(logi_p_croc_f_appp_1var > 0.50, "D", "C")
+  tab_logi_croc_f_appp_1var <- table(factor(valid_croc_f$logi_class_croc_f_appp_1var), factor(valid_croc_f$pgroup))
+  cm_logi_croc_f_appp_1var <- caret::confusionMatrix(tab_logi_croc_f_appp_1var)
+  cm_logi_croc_f_appp_1var$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_f_models$logi_croc_appp_f <- logi_croc_f_1var_models$appp_f
+  
+  #lpre_f
+  logi_p_croc_f_lpre_1var <- predict(logi_croc_f_1var_models$lpre_f, newdata = valid_croc_f)
+  valid_croc_f$logi_p_croc_f_lpre_1var <- logi_p_croc_f_lpre_1var
+  valid_croc_f$logi_class_croc_f_lpre_1var <- ifelse(logi_p_croc_f_lpre_1var > 0.50, "D", "C")
+  tab_logi_croc_f_lpre_1var <- table(factor(valid_croc_f$logi_class_croc_f_lpre_1var), factor(valid_croc_f$pgroup))
+  cm_logi_croc_f_lpre_1var <- caret::confusionMatrix(tab_logi_croc_f_lpre_1var)
+  cm_logi_croc_f_lpre_1var$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_f_models$logi_croc_appp_f <- logi_croc_f_1var_models$appp_f
+  
+  #lpost_f
+  logi_p_croc_f_lpost_1var <- predict(logi_croc_f_1var_models$lpost_f, newdata = valid_croc_f)
+  valid_croc_f$logi_p_croc_f_lpost_1var <- logi_p_croc_f_lpost_1var
+  valid_croc_f$logi_class_croc_f_lpost_1var <- ifelse(logi_p_croc_f_lpost_1var > 0.50, "D", "C")
+  tab_logi_croc_f_lpost_1var <- table(factor(valid_croc_f$logi_class_croc_f_lpost_1var), factor(valid_croc_f$pgroup))
+  cm_logi_croc_f_lpost_1var <- caret::confusionMatrix(tab_logi_croc_f_lpost_1var)
+  cm_logi_croc_f_lpost_1var$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_f_models$logi_croc_lpost_f <- logi_croc_f_1var_models$lpost_f
+  
+  
+#standardized by caw
+  #construct multivariate model
+  #archosaur dataset
+  logi_m_archo_caw_3var <- glm(pgroup ~ cah_caw + hp_caw + lpre_caw, data = resam_archo_caw, family = binomial(link = "logit"))
+  #validate using the test dataset
+  logi_p_archo_caw_3var <- predict(logi_m_archo_caw_3var, newdata = valid_archo_caw)
+  valid_archo_caw$logi_p_archo_caw_3var <- logi_p_archo_caw_3var
+  valid_archo_caw$logi_class_archo_caw_3var <- ifelse(logi_p_archo_caw_3var > 0.50, "D", "C")
+  #estimate the model fit
+  AIC(logi_m_archo_caw_3var)
+  BIC(logi_m_archo_caw_3var)
+  #create a confusion matrix
+  tab_logi_archo_caw_3var <- table(factor(valid_archo_caw$logi_class_archo_caw_3var), factor(valid_archo_caw$pgroup))
+  cm_logi_archo_caw_3var <- caret::confusionMatrix(tab_logi_archo_caw_3var)
+  cm_logi_archo_caw_3var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #construct univariable logistic regression models
+  predictor <- colnames(resam_archo_caw[3:8])
+  logi_archo_caw_1var_models <- lapply(1:length(predictor), function(i) glm(as.formula(paste0("pgroup ~ ", predictor[i])), data = resam_archo_caw, family = binomial))
+  names(logi_archo_caw_1var_models) <- predictor
+  #validate using the test dataset
+  #cl_caw
+  logi_p_archo_caw_cl_1var <- predict(logi_archo_caw_1var_models$cl_caw, newdata = valid_archo_caw)
+  valid_archo_caw$logi_p_archo_caw_cl_1var <- logi_p_archo_caw_cl_1var
+  valid_archo_caw$logi_class_archo_caw_cl_1var <- ifelse(logi_p_archo_caw_cl_1var > 0.50, "D", "C")
+  tab_logi_archo_caw_cl_1var <- table(factor(valid_archo_caw$logi_class_archo_caw_cl_1var), factor(valid_archo_caw$pgroup))
+  cm_logi_archo_caw_cl_1var <- caret::confusionMatrix(tab_logi_archo_caw_cl_1var)
+  cm_logi_archo_caw_cl_1var$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_caw_models$logi_croc_cl_caw <- logi_archo_caw_1var_models$cl_caw
+  
+  #cah_caw
+  logi_p_archo_caw_cah_1var <- predict(logi_archo_caw_1var_models$cah_caw, newdata = valid_archo_caw)
+  valid_archo_caw$logi_p_archo_caw_cah_1var <- logi_p_archo_caw_cah_1var
+  valid_archo_caw$logi_class_archo_caw_cah_1var <- ifelse(logi_p_archo_caw_cah_1var > 0.50, "D", "C")
+  tab_logi_archo_caw_cah_1var <- table(factor(valid_archo_caw$logi_class_archo_caw_cah_1var), factor(valid_archo_caw$pgroup))
+  cm_logi_archo_caw_cah_1var <- caret::confusionMatrix(tab_logi_archo_caw_cah_1var)
+  cm_logi_archo_caw_cah_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #hp_caw
+  logi_p_archo_caw_hp_1var <- predict(logi_archo_caw_1var_models$hp_caw, newdata = valid_archo_caw)
+  valid_archo_caw$logi_p_archo_caw_hp_1var <- logi_p_archo_caw_hp_1var
+  valid_archo_caw$logi_class_archo_caw_hp_1var <- ifelse(logi_p_archo_caw_hp_1var > 0.50, "D", "C")
+  tab_logi_archo_caw_hp_1var <- table(factor(valid_archo_caw$logi_class_archo_caw_hp_1var), factor(valid_archo_caw$pgroup))
+  cm_logi_archo_caw_hp_1var <- caret::confusionMatrix(tab_logi_archo_caw_hp_1var)
+  cm_logi_archo_caw_hp_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #appp_caw
+  logi_p_archo_caw_appp_1var <- predict(logi_archo_caw_1var_models$appp_caw, newdata = valid_archo_caw)
+  valid_archo_caw$logi_p_archo_caw_appp_1var <- logi_p_archo_caw_appp_1var
+  valid_archo_caw$logi_class_archo_caw_appp_1var <- ifelse(logi_p_archo_caw_appp_1var > 0.50, "D", "C")
+  tab_logi_archo_caw_appp_1var <- table(factor(valid_archo_caw$logi_class_archo_caw_appp_1var), factor(valid_archo_caw$pgroup))
+  cm_logi_archo_caw_appp_1var <- caret::confusionMatrix(tab_logi_archo_caw_appp_1var)
+  cm_logi_archo_caw_appp_1var$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_caw_models$logi_croc_appp_caw <- logi_archo_caw_1var_models$appp_caw
+  
+  #lpre_caw
+  logi_p_archo_caw_lpre_1var <- predict(logi_archo_caw_1var_models$lpre_caw, newdata = valid_archo_caw)
+  valid_archo_caw$logi_p_archo_caw_lpre_1var <- logi_p_archo_caw_lpre_1var
+  valid_archo_caw$logi_class_archo_caw_lpre_1var <- ifelse(logi_p_archo_caw_lpre_1var > 0.50, "D", "C")
+  tab_logi_archo_caw_lpre_1var <- table(factor(valid_archo_caw$logi_class_archo_caw_lpre_1var), factor(valid_archo_caw$pgroup))
+  cm_logi_archo_caw_lpre_1var <- caret::confusionMatrix(tab_logi_archo_caw_lpre_1var)
+  cm_logi_archo_caw_lpre_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #lpost_caw
+  logi_p_archo_caw_lpost_1var <- predict(logi_archo_caw_1var_models$lpost_caw, newdata = valid_archo_caw)
+  valid_archo_caw$logi_p_archo_caw_lpost_1var <- logi_p_archo_caw_lpost_1var
+  valid_archo_caw$logi_class_archo_caw_lpost_1var <- ifelse(logi_p_archo_caw_lpost_1var > 0.50, "D", "C")
+  tab_logi_archo_caw_lpost_1var <- table(factor(valid_archo_caw$logi_class_archo_caw_lpost_1var), factor(valid_archo_caw$pgroup))
+  cm_logi_archo_caw_lpost_1var <- caret::confusionMatrix(tab_logi_archo_caw_lpost_1var)
+  cm_logi_archo_caw_lpost_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #bird dataset
+  #construct multivariate model
+  logi_m_bird_caw_3var <- glm(pgroup ~ cah_caw + hp_caw + lpre_caw, data = resam_bird_caw, family = binomial(link = "logit"))
+  #validate using the test dataset
+  logi_p_bird_caw_3var <- predict(logi_m_bird_caw_3var, newdata = valid_bird_caw)
+  valid_bird_caw$logi_p_bird_caw_3var <- logi_p_bird_caw_3var
+  valid_bird_caw$logi_class_bird_caw_3var <- ifelse(logi_p_bird_caw_3var > 0.50, "D", "C")
+  #estimate the model fit
+  AIC(logi_m_bird_caw_3var)
+  BIC(logi_m_bird_caw_3var)
+  #create a confusion matrix
+  tab_logi_bird_caw_3var <- table(factor(valid_bird_caw$logi_class_bird_caw_3var), factor(valid_bird_caw$pgroup))
+  cm_logi_bird_caw_3var <- caret::confusionMatrix(tab_logi_bird_caw_3var)
+  cm_logi_bird_caw_3var$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_caw_models$logi_bird_3var_caw <- logi_m_bird_caw_3var
+  
+  #construct univariable logistic regression models
+  predictor <- colnames(resam_bird_caw[3:8])
+  logi_bird_caw_1var_models <- lapply(1:length(predictor), function(i) glm(as.formula(paste0("pgroup ~ ", predictor[i])), data = resam_bird_caw, family = binomial))
+  names(logi_bird_caw_1var_models) <- predictor
+  #validate using the test dataset
+  #cl_caw
+  logi_p_bird_caw_cl_1var <- predict(logi_bird_caw_1var_models$cl_caw, newdata = valid_bird_caw)
+  valid_bird_caw$logi_p_bird_caw_cl_1var <- logi_p_bird_caw_cl_1var
+  valid_bird_caw$logi_class_bird_caw_cl_1var <- ifelse(logi_p_bird_caw_cl_1var > 0.50, "D", "C")
+  tab_logi_bird_caw_cl_1var <- table(factor(valid_bird_caw$logi_class_bird_caw_cl_1var), factor(valid_bird_caw$pgroup))
+  cm_logi_bird_caw_cl_1var <- caret::confusionMatrix(tab_logi_bird_caw_cl_1var)
+  cm_logi_bird_caw_cl_1var$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_caw_models$logi_bird_cl_caw <- logi_bird_caw_1var_models$cl_caw
+  
+  #cah_caw
+  logi_p_bird_caw_cah_1var <- predict(logi_bird_caw_1var_models$cah_caw, newdata = valid_bird_caw)
+  valid_bird_caw$logi_p_bird_caw_cah_1var <- logi_p_bird_caw_cah_1var
+  valid_bird_caw$logi_class_bird_caw_cah_1var <- ifelse(logi_p_bird_caw_cah_1var > 0.50, "D", "C")
+  tab_logi_bird_caw_cah_1var <- table(factor(valid_bird_caw$logi_class_bird_caw_cah_1var), factor(valid_bird_caw$pgroup))
+  cm_logi_bird_caw_cah_1var <- caret::confusionMatrix(tab_logi_bird_caw_cah_1var)
+  cm_logi_bird_caw_cah_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #hp_caw
+  logi_p_bird_caw_hp_1var <- predict(logi_bird_caw_1var_models$hp_caw, newdata = valid_bird_caw)
+  valid_bird_caw$logi_p_bird_caw_hp_1var <- logi_p_bird_caw_hp_1var
+  valid_bird_caw$logi_class_bird_caw_hp_1var <- ifelse(logi_p_bird_caw_hp_1var > 0.50, "D", "C")
+  tab_logi_bird_caw_hp_1var <- table(factor(valid_bird_caw$logi_class_bird_caw_hp_1var), factor(valid_bird_caw$pgroup))
+  cm_logi_bird_caw_hp_1var <- caret::confusionMatrix(tab_logi_bird_caw_hp_1var)
+  cm_logi_bird_caw_hp_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #appp_caw
+  logi_p_bird_caw_appp_1var <- predict(logi_bird_caw_1var_models$appp_caw, newdata = valid_bird_caw)
+  valid_bird_caw$logi_p_bird_caw_appp_1var <- logi_p_bird_caw_appp_1var
+  valid_bird_caw$logi_class_bird_caw_appp_1var <- ifelse(logi_p_bird_caw_appp_1var > 0.50, "D", "C")
+  tab_logi_bird_caw_appp_1var <- table(factor(valid_bird_caw$logi_class_bird_caw_appp_1var), factor(valid_bird_caw$pgroup))
+  cm_logi_bird_caw_appp_1var <- caret::confusionMatrix(tab_logi_bird_caw_appp_1var)
+  cm_logi_bird_caw_appp_1var$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_caw_models$logi_bird_appp_caw <- logi_bird_caw_1var_models$cl_appp
+  
+  #lpre_caw
+  logi_p_bird_caw_lpre_1var <- predict(logi_bird_caw_1var_models$lpre_caw, newdata = valid_bird_caw)
+  valid_bird_caw$logi_p_bird_caw_lpre_1var <- logi_p_bird_caw_lpre_1var
+  valid_bird_caw$logi_class_bird_caw_lpre_1var <- ifelse(logi_p_bird_caw_lpre_1var > 0.50, "D", "C")
+  tab_logi_bird_caw_lpre_1var <- table(factor(valid_bird_caw$logi_class_bird_caw_lpre_1var), factor(valid_bird_caw$pgroup))
+  cm_logi_bird_caw_lpre_1var <- caret::confusionMatrix(tab_logi_bird_caw_lpre_1var)
+  cm_logi_bird_caw_lpre_1var$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_caw_models$logi_bird_lpre_caw <- logi_bird_caw_1var_models$lpre_caw
+  
+  #lpost_caw
+  logi_p_bird_caw_lpost_1var <- predict(logi_bird_caw_1var_models$lpost_caw, newdata = valid_bird_caw)
+  valid_bird_caw$logi_p_bird_caw_lpost_1var <- logi_p_bird_caw_lpost_1var
+  valid_bird_caw$logi_class_bird_caw_lpost_1var <- ifelse(logi_p_bird_caw_lpost_1var > 0.50, "D", "C")
+  tab_logi_bird_caw_lpost_1var <- table(factor(valid_bird_caw$logi_class_bird_caw_lpost_1var), factor(valid_bird_caw$pgroup))
+  cm_logi_bird_caw_lpost_1var <- caret::confusionMatrix(tab_logi_bird_caw_lpost_1var)
+  cm_logi_bird_caw_lpost_1var$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_caw_models$logi_bird_lpost_caw <- logi_bird_caw_1var_models$lpost_caw
+  
+  #crocodylian dataset
+  #construct multivariate model
+  logi_m_croc_caw_3var <- glm(pgroup ~ cah_caw + hp_caw + lpre_caw, data = resam_croc_caw, family = binomial(link = "logit"))
+  #validate using the test dataset
+  logi_p_croc_caw_3var <- predict(logi_m_croc_caw_3var, newdata = valid_croc_caw)
+  valid_croc_caw$logi_p_croc_caw_3var <- logi_p_croc_caw_3var
+  valid_croc_caw$logi_class_croc_caw_3var <- ifelse(logi_p_croc_caw_3var > 0.50, "D", "C")
+  #estimate the model fit
+  AIC(logi_m_croc_caw_3var)
+  BIC(logi_m_croc_caw_3var)
+  #create a confusion matrix
+  tab_logi_croc_caw_3var <- table(factor(valid_croc_caw$logi_class_croc_caw_3var), factor(valid_croc_caw$pgroup))
+  cm_logi_croc_caw_3var <- caret::confusionMatrix(tab_logi_croc_caw_3var)
+  cm_logi_croc_caw_3var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #construct univariable logistic regression models
+  predictor <- colnames(resam_croc_caw[3:8])
+  logi_croc_caw_1var_models <- lapply(1:length(predictor), function(i) glm(as.formula(paste0("pgroup ~ ", predictor[i])), data = resam_croc_caw, family = binomial))
+  names(logi_croc_caw_1var_models) <- predictor
+  #validate using the test dataset
+  #cl_caw
+  logi_p_croc_caw_cl_1var <- predict(logi_croc_caw_1var_models$cl_caw, newdata = valid_croc_caw)
+  valid_croc_caw$logi_p_croc_caw_cl_1var <- logi_p_croc_caw_cl_1var
+  valid_croc_caw$logi_class_croc_caw_cl_1var <- ifelse(logi_p_croc_caw_cl_1var > 0.50, "D", "C")
+  tab_logi_croc_caw_cl_1var <- table(factor(valid_croc_caw$logi_class_croc_caw_cl_1var), factor(valid_croc_caw$pgroup))
+  cm_logi_croc_caw_cl_1var <- caret::confusionMatrix(tab_logi_croc_caw_cl_1var)
+  cm_logi_croc_caw_cl_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #cah_caw
+  logi_p_croc_caw_cah_1var <- predict(logi_croc_caw_1var_models$cah_caw, newdata = valid_croc_caw)
+  valid_croc_caw$logi_p_croc_caw_cah_1var <- logi_p_croc_caw_cah_1var
+  valid_croc_caw$logi_class_croc_caw_cah_1var <- ifelse(logi_p_croc_caw_cah_1var > 0.50, "D", "C")
+  tab_logi_croc_caw_cah_1var <- table(factor(valid_croc_caw$logi_class_croc_caw_cah_1var), factor(valid_croc_caw$pgroup))
+  cm_logi_croc_caw_cah_1var <- caret::confusionMatrix(tab_logi_croc_caw_cah_1var)
+  cm_logi_croc_caw_cah_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #hp_caw
+  logi_p_croc_caw_hp_1var <- predict(logi_croc_caw_1var_models$hp_caw, newdata = valid_croc_caw)
+  valid_croc_caw$logi_p_croc_caw_hp_1var <- logi_p_croc_caw_hp_1var
+  valid_croc_caw$logi_class_croc_caw_hp_1var <- ifelse(logi_p_croc_caw_hp_1var > 0.50, "D", "C")
+  tab_logi_croc_caw_hp_1var <- table(factor(valid_croc_caw$logi_class_croc_caw_hp_1var), factor(valid_croc_caw$pgroup))
+  cm_logi_croc_caw_hp_1var <- caret::confusionMatrix(tab_logi_croc_caw_hp_1var)
+  cm_logi_croc_caw_hp_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #appp_caw
+  logi_p_croc_caw_appp_1var <- predict(logi_croc_caw_1var_models$appp_caw, newdata = valid_croc_caw)
+  valid_croc_caw$logi_p_croc_caw_appp_1var <- logi_p_croc_caw_appp_1var
+  valid_croc_caw$logi_class_croc_caw_appp_1var <- ifelse(logi_p_croc_caw_appp_1var > 0.50, "D", "C")
+  tab_logi_croc_caw_appp_1var <- table(factor(valid_croc_caw$logi_class_croc_caw_appp_1var), factor(valid_croc_caw$pgroup))
+  cm_logi_croc_caw_appp_1var <- caret::confusionMatrix(tab_logi_croc_caw_appp_1var)
+  cm_logi_croc_caw_appp_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #lpre_caw
+  logi_p_croc_caw_lpre_1var <- predict(logi_croc_caw_1var_models$lpre_caw, newdata = valid_croc_caw)
+  valid_croc_caw$logi_p_croc_caw_lpre_1var <- logi_p_croc_caw_lpre_1var
+  valid_croc_caw$logi_class_croc_caw_lpre_1var <- ifelse(logi_p_croc_caw_lpre_1var > 0.50, "D", "C")
+  tab_logi_croc_caw_lpre_1var <- table(factor(valid_croc_caw$logi_class_croc_caw_lpre_1var), factor(valid_croc_caw$pgroup))
+  cm_logi_croc_caw_lpre_1var <- caret::confusionMatrix(tab_logi_croc_caw_lpre_1var)
+  cm_logi_croc_caw_lpre_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #lpost_caw
+  logi_p_croc_caw_lpost_1var <- predict(logi_croc_caw_1var_models$lpost_caw, newdata = valid_croc_caw)
+  valid_croc_caw$logi_p_croc_caw_lpost_1var <- logi_p_croc_caw_lpost_1var
+  valid_croc_caw$logi_class_croc_caw_lpost_1var <- ifelse(logi_p_croc_caw_lpost_1var > 0.50, "D", "C")
+  tab_logi_croc_caw_lpost_1var <- table(factor(valid_croc_caw$logi_class_croc_caw_lpost_1var), factor(valid_croc_caw$pgroup))
+  cm_logi_croc_caw_lpost_1var <- caret::confusionMatrix(tab_logi_croc_caw_lpost_1var)
+  cm_logi_croc_caw_lpost_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  
+#construct NaiveBayses classifiers with training datasets
+  set.seed(256)
+#standardized by f_length
+  #archosaur dataset
+  bay_m_archo_f_3var <- naive_bayes(pgroup ~ cl_f + caw_f + lpre_f, data = resam_archo_f, usekernel = TRUE)
+  
+  #validate using the test dataset
+  bay_p_archo_f_3var <- predict(bay_m_archo_f_3var, newdata = valid_archo_f[, c("cl_f", "caw_f", "lpre_f")], type = "prob") %>%
+    as.data.frame()
+  valid_archo_f$bay_class_archo_f_3var <- ifelse(bay_p_archo_f_3var$C > bay_p_archo_f_3var$D, "C", "D")
+  tab_bay_archo_f_3var <- table(factor(valid_archo_f$bay_class_archo_f_3var), factor(valid_archo_f$pgroup))
+  cm_bay_archo_f_3var <- caret::confusionMatrix(tab_bay_archo_f_3var)
+  cm_bay_archo_f_3var$overall["Accuracy"]
+
+  #accuracy over 80%, the model is placed in the model list
+  cd_f_models$bay_archo_3var_f <- bay_m_archo_f_3var
+  
+  #try univariable NaiveBayse classifier
+  predictor <- colnames(resam_archo_f[3:9])
+  bay_archo_f_1var_models <- lapply(1:length(predictor), function(i) naive_bayes(as.formula(paste0("pgroup ~ ", predictor[i])), data = resam_archo_f))
+  names(bay_archo_f_1var_models) <- predictor
+  
+  #validate using the test dataset
+  #cl_f
+  bay_p_archo_f_cl_1var <- predict(bay_archo_f_1var_models$cl_f, newdata = valid_archo_f, type = "prob") %>%
+    as.data.frame()
+  valid_archo_f$bay_class_archo_f_cl_1var <- ifelse(bay_p_archo_f_cl_1var$C > bay_p_archo_f_cl_1var$D, "C", "D")
+  tab_bay_archo_f_cl_1var <- table(factor(valid_archo_f$bay_class_archo_f_cl_1var), factor(valid_archo_f$pgroup))
+  cm_bay_archo_f_cl_1var <- caret::confusionMatrix(tab_bay_archo_f_cl_1var)
+  cm_bay_archo_f_cl_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #cah_f
+  bay_p_archo_f_cah_1var <- predict(bay_archo_f_1var_models$cah_f, newdata = valid_archo_f, type = "prob") %>%
+    as.data.frame()
+  valid_archo_f$bay_class_archo_f_cah_1var <- ifelse(bay_p_archo_f_cah_1var$C > bay_p_archo_f_cah_1var$D, "C", "D")
+  tab_bay_archo_f_cah_1var <- table(factor(valid_archo_f$bay_class_archo_f_cah_1var), factor(valid_archo_f$pgroup))
+  cm_bay_archo_f_cah_1var <- caret::confusionMatrix(tab_bay_archo_f_cah_1var)
+  cm_bay_archo_f_cah_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #caw_f
+  bay_p_archo_f_caw_1var <- predict(bay_archo_f_1var_models$caw_f, newdata = valid_archo_f, type = "prob") %>%
+    as.data.frame()
+  valid_archo_f$bay_class_archo_f_caw_1var <- ifelse(bay_p_archo_f_caw_1var$C > bay_p_archo_f_caw_1var$D, "C", "D")
+  tab_bay_archo_f_caw_1var <- table(factor(valid_archo_f$bay_class_archo_f_caw_1var), factor(valid_archo_f$pgroup))
+  cm_bay_archo_f_caw_1var <- caret::confusionMatrix(tab_bay_archo_f_caw_1var)
+  cm_bay_archo_f_caw_1var$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_f_models$bay_archo_caw_f <- bay_archo_f_1var_models$caw_f
+  
+  #hp_f
+  bay_p_archo_f_hp_1var <- predict(bay_archo_f_1var_models$hp_f, newdata = valid_archo_f, type = "prob") %>%
+    as.data.frame()
+  valid_archo_f$bay_class_archo_f_hp_1var <- ifelse(bay_p_archo_f_hp_1var$C > bay_p_archo_f_hp_1var$D, "C", "D")
+  tab_bay_archo_f_hp_1var <- table(factor(valid_archo_f$bay_class_archo_f_hp_1var), factor(valid_archo_f$pgroup))
+  cm_bay_archo_f_hp_1var <- caret::confusionMatrix(tab_bay_archo_f_hp_1var)
+  cm_bay_archo_f_hp_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded    
+  
+  #appp_f
+  bay_p_archo_f_appp_1var <- predict(bay_archo_f_1var_models$appp_f, newdata = valid_archo_f, type = "prob") %>%
+    as.data.frame()
+  valid_archo_f$bay_class_archo_f_appp_1var <- ifelse(bay_p_archo_f_appp_1var$C > bay_p_archo_f_appp_1var$D, "C", "D")
+  tab_bay_archo_f_appp_1var <- table(factor(valid_archo_f$bay_class_archo_f_appp_1var), factor(valid_archo_f$pgroup))
+  cm_bay_archo_f_appp_1var <- caret::confusionMatrix(tab_bay_archo_f_appp_1var)
+  cm_bay_archo_f_appp_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded  
+  
+  #lpre_f
+  bay_p_archo_f_lpre_1var <- predict(bay_archo_f_1var_models$lpre_f, newdata = valid_archo_f, type = "prob") %>%
+    as.data.frame()
+  valid_archo_f$bay_class_archo_f_lpre_1var <- ifelse(bay_p_archo_f_lpre_1var$C > bay_p_archo_f_lpre_1var$D, "C", "D")
+  tab_bay_archo_f_lpre_1var <- table(factor(valid_archo_f$bay_class_archo_f_lpre_1var), factor(valid_archo_f$pgroup))
+  cm_bay_archo_f_lpre_1var <- caret::confusionMatrix(tab_bay_archo_f_lpre_1var)
+  cm_bay_archo_f_lpre_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded  
+  
+  #lpost_f
+  bay_p_archo_f_lpost_1var <- predict(bay_archo_f_1var_models$lpost_f, newdata = valid_archo_f, type = "prob") %>%
+    as.data.frame()
+  valid_archo_f$bay_class_archo_f_lpost_1var <- ifelse(bay_p_archo_f_lpost_1var$C > bay_p_archo_f_lpost_1var$D, "C", "D")
+  tab_bay_archo_f_lpost_1var <- table(factor(valid_archo_f$bay_class_archo_f_lpost_1var), factor(valid_archo_f$pgroup))
+  cm_bay_archo_f_lpost_1var <- caret::confusionMatrix(tab_bay_archo_f_lpost_1var)
+  cm_bay_archo_f_lpost_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded  
+  
+  #bird dataset
+  bay_m_bird_f_3var <- naive_bayes(pgroup ~ cl_f + caw_f + lpre_f, data = resam_bird_f)
+  
+  #validate using the test dataset
+  bay_p_bird_f_3var <- predict(bay_m_bird_f_3var, newdata = valid_bird_f[, c("cl_f", "caw_f", "lpre_f")], type = "prob") %>%
+    as.data.frame()
+  valid_bird_f$bay_class_bird_f_3var <- ifelse(bay_p_bird_f_3var$C > bay_p_bird_f_3var$D, "C", "D")
+  tab_bay_bird_f_3var <- table(factor(valid_bird_f$bay_class_bird_f_3var), factor(valid_bird_f$pgroup))
+  cm_bay_bird_f_3var <- caret::confusionMatrix(tab_bay_bird_f_3var)
+  cm_bay_bird_f_3var$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_f_models$bay_bird_3var_f <- bay_m_bird_f_3var
+  
+  #try univariable NaiveBayse classifier
+  predictor <- colnames(resam_bird_f[3:9])
+  bay_bird_f_1var_models <- lapply(1:length(predictor), function(i) naive_bayes(as.formula(paste0("pgroup ~ ", predictor[i])), data = resam_bird_f))
+  names(bay_bird_f_1var_models) <- predictor
+  
+  #validate using the test dataset
+  #cl_f
+  bay_p_bird_f_cl_1var <- predict(bay_bird_f_1var_models$cl_f, newdata = valid_bird_f, type = "prob") %>%
+    as.data.frame()
+  valid_bird_f$bay_class_bird_f_cl_1var <- ifelse(bay_p_bird_f_cl_1var$C > bay_p_bird_f_cl_1var$D, "C", "D")
+  tab_bay_bird_f_cl_1var <- table(factor(valid_bird_f$bay_class_bird_f_cl_1var), factor(valid_bird_f$pgroup))
+  cm_bay_bird_f_cl_1var <- caret::confusionMatrix(tab_bay_bird_f_cl_1var)
+  cm_bay_bird_f_cl_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #cah_f
+  bay_p_bird_f_cah_1var <- predict(bay_bird_f_1var_models$cah_f, newdata = valid_bird_f, type = "prob") %>%
+    as.data.frame()
+  valid_bird_f$bay_class_bird_f_cah_1var <- ifelse(bay_p_bird_f_cah_1var$C > bay_p_bird_f_cah_1var$D, "C", "D")
+  tab_bay_bird_f_cah_1var <- table(factor(valid_bird_f$bay_class_bird_f_cah_1var), factor(valid_bird_f$pgroup))
+  cm_bay_bird_f_cah_1var <- caret::confusionMatrix(tab_bay_bird_f_cah_1var)
+  cm_bay_bird_f_cah_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #caw_f
+  bay_p_bird_f_caw_1var <- predict(bay_bird_f_1var_models$caw_f, newdata = valid_bird_f, type = "prob") %>%
+    as.data.frame()
+  valid_bird_f$bay_class_bird_f_caw_1var <- ifelse(bay_p_bird_f_caw_1var$C > bay_p_bird_f_caw_1var$D, "C", "D")
+  tab_bay_bird_f_caw_1var <- table(factor(valid_bird_f$bay_class_bird_f_caw_1var), factor(valid_bird_f$pgroup))
+  cm_bay_bird_f_caw_1var <- caret::confusionMatrix(tab_bay_bird_f_caw_1var)
+  cm_bay_bird_f_caw_1var$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_f_models$bay_bird_caw_f <- bay_bird_f_1var_models$caw_f
+  
+  #hp_f
+  bay_p_bird_f_hp_1var <- predict(bay_bird_f_1var_models$hp_f, newdata = valid_bird_f, type = "prob") %>%
+    as.data.frame()
+  valid_bird_f$bay_class_bird_f_hp_1var <- ifelse(bay_p_bird_f_hp_1var$C > bay_p_bird_f_hp_1var$D, "C", "D")
+  tab_bay_bird_f_hp_1var <- table(factor(valid_bird_f$bay_class_bird_f_hp_1var), factor(valid_bird_f$pgroup))
+  cm_bay_bird_f_hp_1var <- caret::confusionMatrix(tab_bay_bird_f_hp_1var)
+  cm_bay_bird_f_hp_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded    
+  
+  #appp_f
+  bay_p_bird_f_appp_1var <- predict(bay_bird_f_1var_models$appp_f, newdata = valid_bird_f, type = "prob") %>%
+    as.data.frame()
+  valid_bird_f$bay_class_bird_f_appp_1var <- ifelse(bay_p_bird_f_appp_1var$C > bay_p_bird_f_appp_1var$D, "C", "D")
+  tab_bay_bird_f_appp_1var <- table(factor(valid_bird_f$bay_class_bird_f_appp_1var), factor(valid_bird_f$pgroup))
+  cm_bay_bird_f_appp_1var <- caret::confusionMatrix(tab_bay_bird_f_appp_1var)
+  cm_bay_bird_f_appp_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded  
+  
+  #lpre_f
+  bay_p_bird_f_lpre_1var <- predict(bay_bird_f_1var_models$lpre_f, newdata = valid_bird_f, type = "prob") %>%
+    as.data.frame()
+  valid_bird_f$bay_class_bird_f_lpre_1var <- ifelse(bay_p_bird_f_lpre_1var$C > bay_p_bird_f_lpre_1var$D, "C", "D")
+  tab_bay_bird_f_lpre_1var <- table(factor(valid_bird_f$bay_class_bird_f_lpre_1var), factor(valid_bird_f$pgroup))
+  cm_bay_bird_f_lpre_1var <- caret::confusionMatrix(tab_bay_bird_f_lpre_1var)
+  cm_bay_bird_f_lpre_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded  
+  
+  #lpost_f
+  bay_p_bird_f_lpost_1var <- predict(bay_bird_f_1var_models$lpost_f, newdata = valid_bird_f, type = "prob") %>%
+    as.data.frame()
+  valid_bird_f$bay_class_bird_f_lpost_1var <- ifelse(bay_p_bird_f_lpost_1var$C > bay_p_bird_f_lpost_1var$D, "C", "D")
+  tab_bay_bird_f_lpost_1var <- table(factor(valid_bird_f$bay_class_bird_f_lpost_1var), factor(valid_bird_f$pgroup))
+  cm_bay_bird_f_lpost_1var <- caret::confusionMatrix(tab_bay_bird_f_lpost_1var)
+  cm_bay_bird_f_lpost_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #croc dataset
+  bay_m_croc_f_3var <- naive_bayes(pgroup ~ cl_f + caw_f + lpre_f, data = resam_croc_f)
+  
+  #validate using the test dataset
+  bay_p_croc_f_3var <- predict(bay_m_croc_f_3var, newdata = valid_croc_f[, c("cl_f", "caw_f", "lpre_f")], type = "prob") %>%
+    as.data.frame()
+  valid_croc_f$bay_class_croc_f_3var <- ifelse(bay_p_croc_f_3var$C > bay_p_croc_f_3var$D, "C", "D")
+  tab_bay_croc_f_3var <- table(factor(valid_croc_f$bay_class_croc_f_3var), factor(valid_croc_f$pgroup))
+  cm_bay_croc_f_3var <- caret::confusionMatrix(tab_bay_croc_f_3var)
+  cm_bay_croc_f_3var$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_f_models$bay_croc_3var_f <- bay_m_croc_f_3var
+  
+  #try univariable NaiveBayse classifier
+  predictor <- colnames(resam_croc_f[3:9])
+  bay_croc_f_1var_models <- lapply(1:length(predictor), function(i) naive_bayes(as.formula(paste0("pgroup ~ ", predictor[i])), data = resam_croc_f))
+  names(bay_croc_f_1var_models) <- predictor
+  
+  #validate using the test dataset
+  #cl_f
+  bay_p_croc_f_cl_1var <- predict(bay_croc_f_1var_models$cl_f, newdata = valid_croc_f, type = "prob") %>%
+    as.data.frame()
+  valid_croc_f$bay_class_croc_f_cl_1var <- ifelse(bay_p_croc_f_cl_1var$C > bay_p_croc_f_cl_1var$D, "C", "D")
+  tab_bay_croc_f_cl_1var <- table(factor(valid_croc_f$bay_class_croc_f_cl_1var), factor(valid_croc_f$pgroup))
+  cm_bay_croc_f_cl_1var <- caret::confusionMatrix(tab_bay_croc_f_cl_1var)
+  cm_bay_croc_f_cl_1var$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_f_models$bay_croc_cl_f <- bay_croc_f_1var_models$cl_f
+  
+  #cah_f
+  bay_p_croc_f_cah_1var <- predict(bay_croc_f_1var_models$cah_f, newdata = valid_croc_f, type = "prob") %>%
+    as.data.frame()
+  valid_croc_f$bay_class_croc_f_cah_1var <- ifelse(bay_p_croc_f_cah_1var$C > bay_p_croc_f_cah_1var$D, "C", "D")
+  tab_bay_croc_f_cah_1var <- table(factor(valid_croc_f$bay_class_croc_f_cah_1var), factor(valid_croc_f$pgroup))
+  cm_bay_croc_f_cah_1var <- caret::confusionMatrix(tab_bay_croc_f_cah_1var)
+  cm_bay_croc_f_cah_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #caw_f
+  bay_p_croc_f_caw_1var <- predict(bay_croc_f_1var_models$caw_f, newdata = valid_croc_f, type = "prob") %>%
+    as.data.frame()
+  valid_croc_f$bay_class_croc_f_caw_1var <- ifelse(bay_p_croc_f_caw_1var$C > bay_p_croc_f_caw_1var$D, "C", "D")
+  tab_bay_croc_f_caw_1var <- table(factor(valid_croc_f$bay_class_croc_f_caw_1var), factor(valid_croc_f$pgroup))
+  cm_bay_croc_f_caw_1var <- caret::confusionMatrix(tab_bay_croc_f_caw_1var)
+  cm_bay_croc_f_caw_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #hp_f
+  bay_p_croc_f_hp_1var <- predict(bay_croc_f_1var_models$hp_f, newdata = valid_croc_f, type = "prob") %>%
+    as.data.frame()
+  valid_croc_f$bay_class_croc_f_hp_1var <- ifelse(bay_p_croc_f_hp_1var$C > bay_p_croc_f_hp_1var$D, "C", "D")
+  tab_bay_croc_f_hp_1var <- table(factor(valid_croc_f$bay_class_croc_f_hp_1var), factor(valid_croc_f$pgroup))
+  cm_bay_croc_f_hp_1var <- caret::confusionMatrix(tab_bay_croc_f_hp_1var)
+  cm_bay_croc_f_hp_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded    
+  
+  #appp_f
+  bay_p_croc_f_appp_1var <- predict(bay_croc_f_1var_models$appp_f, newdata = valid_croc_f, type = "prob") %>%
+    as.data.frame()
+  valid_croc_f$bay_class_croc_f_appp_1var <- ifelse(bay_p_croc_f_appp_1var$C > bay_p_croc_f_appp_1var$D, "C", "D")
+  tab_bay_croc_f_appp_1var <- table(factor(valid_croc_f$bay_class_croc_f_appp_1var), factor(valid_croc_f$pgroup))
+  cm_bay_croc_f_appp_1var <- caret::confusionMatrix(tab_bay_croc_f_appp_1var)
+  cm_bay_croc_f_appp_1var$overall["Accuracy"]
+  #accuracy is 80%, the model is placed in the model list
+  cd_f_models$bay_croc_appp_f <- bay_croc_f_1var_models$appp_f
+  
+  #lpre_f
+  bay_p_croc_f_lpre_1var <- predict(bay_croc_f_1var_models$lpre_f, newdata = valid_croc_f, type = "prob") %>%
+    as.data.frame()
+  valid_croc_f$bay_class_croc_f_lpre_1var <- ifelse(bay_p_croc_f_lpre_1var$C > bay_p_croc_f_lpre_1var$D, "C", "D")
+  tab_bay_croc_f_lpre_1var <- table(factor(valid_croc_f$bay_class_croc_f_lpre_1var), factor(valid_croc_f$pgroup))
+  cm_bay_croc_f_lpre_1var <- caret::confusionMatrix(tab_bay_croc_f_lpre_1var)
+  cm_bay_croc_f_lpre_1var$overall["Accuracy"]
+  #accuracy is 80%, the model is placed in the model list
+  cd_f_models$bay_croc_lpre_f <- bay_croc_f_1var_models$lpre_f
+  
+  #lpost_f
+  bay_p_croc_f_lpost_1var <- predict(bay_croc_f_1var_models$lpost_f, newdata = valid_croc_f, type = "prob") %>%
+    as.data.frame()
+  valid_croc_f$bay_class_croc_f_lpost_1var <- ifelse(bay_p_croc_f_lpost_1var$C > bay_p_croc_f_lpost_1var$D, "C", "D")
+  tab_bay_croc_f_lpost_1var <- table(factor(valid_croc_f$bay_class_croc_f_lpost_1var), factor(valid_croc_f$pgroup))
+  cm_bay_croc_f_lpost_1var <- caret::confusionMatrix(tab_bay_croc_f_lpost_1var)
+  cm_bay_croc_f_lpost_1var$overall["Accuracy"]
+  #accuracy is 80%, the model is placed in the model list
+  cd_f_models$bay_croc_lpost_f <- bay_croc_f_1var_models$lpost_f
+  
+  
+#standardized by caw  
+  #archosaur dataset
+  bay_m_archo_caw_3var <- naive_bayes(pgroup ~ cah_caw + hp_caw + lpre_caw, data = resam_archo_caw)
+  
+  #validate using the test dataset
+  bay_p_archo_caw_3var <- predict(bay_m_archo_caw_3var, newdata = valid_archo_caw[, c("cah_caw", "hp_caw", "lpre_caw")], type = "prob") %>%
+    as.data.frame()
+  valid_archo_caw$bay_class_archo_caw_3var <- ifelse(bay_p_archo_caw_3var$C > bay_p_archo_caw_3var$D, "C", "D")
+  tab_bay_archo_caw_3var <- table(factor(valid_archo_caw$bay_class_archo_caw_3var), factor(valid_archo_caw$pgroup))
+  cm_bay_archo_caw_3var <- caret::confusionMatrix(tab_bay_archo_caw_3var)
+  cm_bay_archo_caw_3var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #try univariable NaiveBayse classifier
+  predictor <- colnames(resam_archo_caw[3:8])
+  bay_archo_caw_1var_models <- lapply(1:length(predictor), function(i) naive_bayes(as.formula(paste0("pgroup ~ ", predictor[i])), data = resam_archo_caw))
+  names(bay_archo_caw_1var_models) <- predictor
+  
+  #validate using the test dataset
+  #cl_caw
+  bay_p_archo_caw_cl_1var <- predict(bay_archo_caw_1var_models$cl_caw, newdata = valid_archo_caw, type = "prob") %>%
+    as.data.frame()
+  valid_archo_caw$bay_class_archo_caw_cl_1var <- ifelse(bay_p_archo_caw_cl_1var$C > bay_p_archo_caw_cl_1var$D, "C", "D")
+  tab_bay_archo_caw_cl_1var <- table(factor(valid_archo_caw$bay_class_archo_caw_cl_1var), factor(valid_archo_caw$pgroup))
+  cm_bay_archo_caw_cl_1var <- caret::confusionMatrix(tab_bay_archo_caw_cl_1var)
+  cm_bay_archo_caw_cl_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #cah_caw
+  bay_p_archo_caw_cah_1var <- predict(bay_archo_caw_1var_models$cah_caw, newdata = valid_archo_caw, type = "prob") %>%
+    as.data.frame()
+  valid_archo_caw$bay_class_archo_caw_cah_1var <- ifelse(bay_p_archo_caw_cah_1var$C > bay_p_archo_caw_cah_1var$D, "C", "D")
+  tab_bay_archo_caw_cah_1var <- table(factor(valid_archo_caw$bay_class_archo_caw_cah_1var), factor(valid_archo_caw$pgroup))
+  cm_bay_archo_caw_cah_1var <- caret::confusionMatrix(tab_bay_archo_caw_cah_1var)
+  cm_bay_archo_caw_cah_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #hp_caw
+  bay_p_archo_caw_hp_1var <- predict(bay_archo_caw_1var_models$hp_caw, newdata = valid_archo_caw, type = "prob") %>%
+    as.data.frame()
+  valid_archo_caw$bay_class_archo_caw_hp_1var <- ifelse(bay_p_archo_caw_hp_1var$C > bay_p_archo_caw_hp_1var$D, "C", "D")
+  tab_bay_archo_caw_hp_1var <- table(factor(valid_archo_caw$bay_class_archo_caw_hp_1var), factor(valid_archo_caw$pgroup))
+  cm_bay_archo_caw_hp_1var <- caret::confusionMatrix(tab_bay_archo_caw_hp_1var)
+  cm_bay_archo_caw_hp_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded    
+  
+  #appp_caw
+  bay_p_archo_caw_appp_1var <- predict(bay_archo_caw_1var_models$appp_caw, newdata = valid_archo_caw, type = "prob") %>%
+    as.data.frame()
+  valid_archo_caw$bay_class_archo_caw_appp_1var <- ifelse(bay_p_archo_caw_appp_1var$C > bay_p_archo_caw_appp_1var$D, "C", "D")
+  tab_bay_archo_caw_appp_1var <- table(factor(valid_archo_caw$bay_class_archo_caw_appp_1var), factor(valid_archo_caw$pgroup))
+  cm_bay_archo_caw_appp_1var <- caret::confusionMatrix(tab_bay_archo_caw_appp_1var)
+  cm_bay_archo_caw_appp_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded  
+  
+  #lpre_caw
+  bay_p_archo_caw_lpre_1var <- predict(bay_archo_caw_1var_models$lpre_caw, newdata = valid_archo_caw, type = "prob") %>%
+    as.data.frame()
+  valid_archo_caw$bay_class_archo_caw_lpre_1var <- ifelse(bay_p_archo_caw_lpre_1var$C > bay_p_archo_caw_lpre_1var$D, "C", "D")
+  tab_bay_archo_caw_lpre_1var <- table(factor(valid_archo_caw$bay_class_archo_caw_lpre_1var), factor(valid_archo_caw$pgroup))
+  cm_bay_archo_caw_lpre_1var <- caret::confusionMatrix(tab_bay_archo_caw_lpre_1var)
+  cm_bay_archo_caw_lpre_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded  
+  
+  #lpost_caw
+  bay_p_archo_caw_lpost_1var <- predict(bay_archo_caw_1var_models$lpost_caw, newdata = valid_archo_caw, type = "prob") %>%
+    as.data.frame()
+  valid_archo_caw$bay_class_archo_caw_lpost_1var <- ifelse(bay_p_archo_caw_lpost_1var$C > bay_p_archo_caw_lpost_1var$D, "C", "D")
+  tab_bay_archo_caw_lpost_1var <- table(factor(valid_archo_caw$bay_class_archo_caw_lpost_1var), factor(valid_archo_caw$pgroup))
+  cm_bay_archo_caw_lpost_1var <- caret::confusionMatrix(tab_bay_archo_caw_lpost_1var)
+  cm_bay_archo_caw_lpost_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded  
+  
+  #bird dataset
+  bay_m_bird_caw_3var <- naive_bayes(pgroup ~ cah_caw + hp_caw + lpre_caw, data = resam_bird_caw)
+  
+  #validate using the test dataset
+  bay_p_bird_caw_3var <- predict(bay_m_bird_caw_3var, newdata = valid_bird_caw[, c("cah_caw", "hp_caw", "lpre_caw")], type = "prob") %>%
+    as.data.frame()
+  valid_bird_caw$bay_class_bird_caw_3var <- ifelse(bay_p_bird_caw_3var$C > bay_p_bird_caw_3var$D, "C", "D")
+  tab_bay_bird_caw_3var <- table(factor(valid_bird_caw$bay_class_bird_caw_3var), factor(valid_bird_caw$pgroup))
+  cm_bay_bird_caw_3var <- caret::confusionMatrix(tab_bay_bird_caw_3var)
+  cm_bay_bird_caw_3var$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_caw_models$bay_bird_3var_caw <- bay_m_bird_caw_3var
+  
+  #try univariable NaiveBayse classifier
+  predictor <- colnames(resam_bird_caw[3:8])
+  bay_bird_caw_1var_models <- lapply(1:length(predictor), function(i) naive_bayes(as.formula(paste0("pgroup ~ ", predictor[i])), data = resam_bird_caw))
+  names(bay_bird_caw_1var_models) <- predictor
+  
+  #validate using the test dataset
+  #cl_caw
+  bay_p_bird_caw_cl_1var <- predict(bay_bird_caw_1var_models$cl_caw, newdata = valid_bird_caw, type = "prob") %>%
+    as.data.frame()
+  valid_bird_caw$bay_class_bird_caw_cl_1var <- ifelse(bay_p_bird_caw_cl_1var$C > bay_p_bird_caw_cl_1var$D, "C", "D")
+  tab_bay_bird_caw_cl_1var <- table(factor(valid_bird_caw$bay_class_bird_caw_cl_1var), factor(valid_bird_caw$pgroup))
+  cm_bay_bird_caw_cl_1var <- caret::confusionMatrix(tab_bay_bird_caw_cl_1var)
+  cm_bay_bird_caw_cl_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #cah_caw
+  bay_p_bird_caw_cah_1var <- predict(bay_bird_caw_1var_models$cah_caw, newdata = valid_bird_caw, type = "prob") %>%
+    as.data.frame()
+  valid_bird_caw$bay_class_bird_caw_cah_1var <- ifelse(bay_p_bird_caw_cah_1var$C > bay_p_bird_caw_cah_1var$D, "C", "D")
+  tab_bay_bird_caw_cah_1var <- table(factor(valid_bird_caw$bay_class_bird_caw_cah_1var), factor(valid_bird_caw$pgroup))
+  cm_bay_bird_caw_cah_1var <- caret::confusionMatrix(tab_bay_bird_caw_cah_1var)
+  cm_bay_bird_caw_cah_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #hp_caw
+  bay_p_bird_caw_hp_1var <- predict(bay_bird_caw_1var_models$hp_caw, newdata = valid_bird_caw, type = "prob") %>%
+    as.data.frame()
+  valid_bird_caw$bay_class_bird_caw_hp_1var <- ifelse(bay_p_bird_caw_hp_1var$C > bay_p_bird_caw_hp_1var$D, "C", "D")
+  tab_bay_bird_caw_hp_1var <- table(factor(valid_bird_caw$bay_class_bird_caw_hp_1var), factor(valid_bird_caw$pgroup))
+  cm_bay_bird_caw_hp_1var <- caret::confusionMatrix(tab_bay_bird_caw_hp_1var)
+  cm_bay_bird_caw_hp_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded    
+  
+  #appp_caw
+  bay_p_bird_caw_appp_1var <- predict(bay_bird_caw_1var_models$appp_caw, newdata = valid_bird_caw, type = "prob") %>%
+    as.data.frame()
+  valid_bird_caw$bay_class_bird_caw_appp_1var <- ifelse(bay_p_bird_caw_appp_1var$C > bay_p_bird_caw_appp_1var$D, "C", "D")
+  tab_bay_bird_caw_appp_1var <- table(factor(valid_bird_caw$bay_class_bird_caw_appp_1var), factor(valid_bird_caw$pgroup))
+  cm_bay_bird_caw_appp_1var <- caret::confusionMatrix(tab_bay_bird_caw_appp_1var)
+  cm_bay_bird_caw_appp_1var$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_caw_models$bay_bird_appp_caw <- bay_bird_caw_1var_models$appp_caw
+  
+  #lpre_caw
+  bay_p_bird_caw_lpre_1var <- predict(bay_bird_caw_1var_models$lpre_caw, newdata = valid_bird_caw, type = "prob") %>%
+    as.data.frame()
+  valid_bird_caw$bay_class_bird_caw_lpre_1var <- ifelse(bay_p_bird_caw_lpre_1var$C > bay_p_bird_caw_lpre_1var$D, "C", "D")
+  tab_bay_bird_caw_lpre_1var <- table(factor(valid_bird_caw$bay_class_bird_caw_lpre_1var), factor(valid_bird_caw$pgroup))
+  cm_bay_bird_caw_lpre_1var <- caret::confusionMatrix(tab_bay_bird_caw_lpre_1var)
+  cm_bay_bird_caw_lpre_1var$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_caw_models$bay_bird_lpre_caw <- bay_bird_caw_1var_models$lpre_caw
+  
+  #lpost_caw
+  bay_p_bird_caw_lpost_1var <- predict(bay_bird_caw_1var_models$lpost_caw, newdata = valid_bird_caw, type = "prob") %>%
+    as.data.frame()
+  valid_bird_caw$bay_class_bird_caw_lpost_1var <- ifelse(bay_p_bird_caw_lpost_1var$C > bay_p_bird_caw_lpost_1var$D, "C", "D")
+  tab_bay_bird_caw_lpost_1var <- table(factor(valid_bird_caw$bay_class_bird_caw_lpost_1var), factor(valid_bird_caw$pgroup))
+  cm_bay_bird_caw_lpost_1var <- caret::confusionMatrix(tab_bay_bird_caw_lpost_1var)
+  cm_bay_bird_caw_lpost_1var$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_caw_models$bay_bird_lpost_caw <- bay_bird_caw_1var_models$lpost_caw
+  
+  #croc dataset
+  bay_m_croc_caw_3var <- naive_bayes(pgroup ~ cah_caw + hp_caw + lpre_caw, data = resam_croc_caw)
+  
+  #validate using the test dataset
+  bay_p_croc_caw_3var <- predict(bay_m_croc_caw_3var, newdata = valid_croc_caw[, c("cah_caw", "hp_caw", "lpre_caw")], type = "prob") %>%
+    as.data.frame()
+  valid_croc_caw$bay_class_croc_caw_3var <- ifelse(bay_p_croc_caw_3var$C > bay_p_croc_caw_3var$D, "C", "D")
+  tab_bay_croc_caw_3var <- table(factor(valid_croc_caw$bay_class_croc_caw_3var), factor(valid_croc_caw$pgroup))
+  cm_bay_croc_caw_3var <- caret::confusionMatrix(tab_bay_croc_caw_3var)
+  cm_bay_croc_caw_3var$overall["Accuracy"]
+  #model not accurate enough, and is discarded  
+  
+  #try univariable NaiveBayse classifier
+  predictor <- colnames(resam_croc_caw[3:8])
+  bay_croc_caw_1var_models <- lapply(1:length(predictor), function(i) naive_bayes(as.formula(paste0("pgroup ~ ", predictor[i])), data = resam_croc_caw))
+  names(bay_croc_caw_1var_models) <- predictor
+  
+  #validate using the test dataset
+  #cl_caw
+  bay_p_croc_caw_cl_1var <- predict(bay_croc_caw_1var_models$cl_caw, newdata = valid_croc_caw, type = "prob") %>%
+    as.data.frame()
+  valid_croc_caw$bay_class_croc_caw_cl_1var <- ifelse(bay_p_croc_caw_cl_1var$C > bay_p_croc_caw_cl_1var$D, "C", "D")
+  tab_bay_croc_caw_cl_1var <- table(factor(valid_croc_caw$bay_class_croc_caw_cl_1var), factor(valid_croc_caw$pgroup))
+  cm_bay_croc_caw_cl_1var <- caret::confusionMatrix(tab_bay_croc_caw_cl_1var)
+  cm_bay_croc_caw_cl_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded  
+  
+  #cah_caw
+  bay_p_croc_caw_cah_1var <- predict(bay_croc_caw_1var_models$cah_caw, newdata = valid_croc_caw, type = "prob") %>%
+    as.data.frame()
+  valid_croc_caw$bay_class_croc_caw_cah_1var <- ifelse(bay_p_croc_caw_cah_1var$C > bay_p_croc_caw_cah_1var$D, "C", "D")
+  tab_bay_croc_caw_cah_1var <- table(factor(valid_croc_caw$bay_class_croc_caw_cah_1var), factor(valid_croc_caw$pgroup))
+  cm_bay_croc_caw_cah_1var <- caret::confusionMatrix(tab_bay_croc_caw_cah_1var)
+  cm_bay_croc_caw_cah_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded
+  
+  #hp_caw
+  bay_p_croc_caw_hp_1var <- predict(bay_croc_caw_1var_models$hp_caw, newdata = valid_croc_caw, type = "prob") %>%
+    as.data.frame()
+  valid_croc_caw$bay_class_croc_caw_hp_1var <- ifelse(bay_p_croc_caw_hp_1var$C > bay_p_croc_caw_hp_1var$D, "C", "D")
+  tab_bay_croc_caw_hp_1var <- table(factor(valid_croc_caw$bay_class_croc_caw_hp_1var), factor(valid_croc_caw$pgroup))
+  cm_bay_croc_caw_hp_1var <- caret::confusionMatrix(tab_bay_croc_caw_hp_1var)
+  cm_bay_croc_caw_hp_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded    
+  
+  #appp_caw
+  bay_p_croc_caw_appp_1var <- predict(bay_croc_caw_1var_models$appp_caw, newdata = valid_croc_caw, type = "prob") %>%
+    as.data.frame()
+  valid_croc_caw$bay_class_croc_caw_appp_1var <- ifelse(bay_p_croc_caw_appp_1var$C > bay_p_croc_caw_appp_1var$D, "C", "D")
+  tab_bay_croc_caw_appp_1var <- table(factor(valid_croc_caw$bay_class_croc_caw_appp_1var), factor(valid_croc_caw$pgroup))
+  cm_bay_croc_caw_appp_1var <- caret::confusionMatrix(tab_bay_croc_caw_appp_1var)
+  cm_bay_croc_caw_appp_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded  
+  
+  #lpre_caw
+  bay_p_croc_caw_lpre_1var <- predict(bay_croc_caw_1var_models$lpre_caw, newdata = valid_croc_caw, type = "prob") %>%
+    as.data.frame()
+  valid_croc_caw$bay_class_croc_caw_lpre_1var <- ifelse(bay_p_croc_caw_lpre_1var$C > bay_p_croc_caw_lpre_1var$D, "C", "D")
+  tab_bay_croc_caw_lpre_1var <- table(factor(valid_croc_caw$bay_class_croc_caw_lpre_1var), factor(valid_croc_caw$pgroup))
+  cm_bay_croc_caw_lpre_1var <- caret::confusionMatrix(tab_bay_croc_caw_lpre_1var)
+  cm_bay_croc_caw_lpre_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded  
+  
+  #lpost_caw
+  bay_p_croc_caw_lpost_1var <- predict(bay_croc_caw_1var_models$lpost_caw, newdata = valid_croc_caw, type = "prob") %>%
+    as.data.frame()
+  valid_croc_caw$bay_class_croc_caw_lpost_1var <- ifelse(bay_p_croc_caw_lpost_1var$C > bay_p_croc_caw_lpost_1var$D, "C", "D")
+  tab_bay_croc_caw_lpost_1var <- table(factor(valid_croc_caw$bay_class_croc_caw_lpost_1var), factor(valid_croc_caw$pgroup))
+  cm_bay_croc_caw_lpost_1var <- caret::confusionMatrix(tab_bay_croc_caw_lpost_1var)
+  cm_bay_croc_caw_lpost_1var$overall["Accuracy"]
+  #model not accurate enough, and is discarded  
+  
+  
+  
+#construct randomforest classifiers with traninig datasets
+  set.seed(256)
+#standardized by f_length
+  #archosaur dataset
+  ranfor_m_archo_f_3var <- randomForest(pgroup ~ cl_f + caw_f + lpre_f, data = resam_archo_f, ntree = 500, proximity = TRUE)
+  
+  #validate with the test dataset
+  valid_archo_f$ranfor_class_archo_f_3var <- predict(ranfor_m_archo_f_3var, newdata = valid_archo_f)
+  tab_ranfort_archo_f_3var <- table(factor(valid_archo_f$ranfor_class_archo_f_3var), factor(valid_archo_f$pgroup))
+  cm_ranfort_archo_f_3var <- caret::confusionMatrix(tab_ranfort_archo_f_3var)
+  cm_ranfort_archo_f_3var$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_f_models$ranfort_archo_3var_f <- ranfor_m_archo_f_3var
+  
+  #bird dataset
+  ranfor_m_bird_f_3var <- randomForest(pgroup ~ cl_f + caw_f + lpre_f, data = resam_bird_f, ntree = 500, proximity = TRUE)
+  
+  #validate with the test dataset
+  valid_bird_f$ranfor_class_bird_f_3var <- predict(ranfor_m_bird_f_3var, newdata = valid_bird_f)
+  tab_ranfort_bird_f_3var <- table(factor(valid_bird_f$ranfor_class_bird_f_3var), factor(valid_bird_f$pgroup))
+  cm_ranfort_bird_f_3var <- caret::confusionMatrix(tab_ranfort_bird_f_3var)
+  cm_ranfort_bird_f_3var$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_f_models$ranfort_bird_3var_f <- ranfor_m_bird_f_3var
+  
+  #crocodylian dataset
+  ranfor_m_croc_f_3var <- randomForest(pgroup ~ cl_f + caw_f + lpre_f, data = resam_croc_f, ntree = 500, proximity = TRUE)
+  
+  #validate with the test dataset
+  valid_croc_f$ranfor_class_croc_f_3var <- predict(ranfor_m_croc_f_3var, newdata = valid_croc_f)
+  tab_ranfort_croc_f_3var <- table(factor(valid_croc_f$ranfor_class_croc_f_3var), factor(valid_croc_f$pgroup))
+  cm_ranfort_croc_f_3var <- caret::confusionMatrix(tab_ranfort_croc_f_3var)
+  cm_ranfort_croc_f_3var$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_f_models$ranfort_croc_3var_f <- ranfor_m_croc_f_3var
+  
+  #standardized by caw
+  #archosaur dataset
+  ranfor_m_archo_caw_3var <- randomForest(pgroup ~ cah_caw + hp_caw + lpre_caw, data = resam_archo_caw, ntree = 500, proximity = TRUE)
+  
+  #validate with the test dataset
+  valid_archo_caw$ranfor_class_archo_caw_3var <- predict(ranfor_m_archo_caw_3var, newdata = valid_archo_caw)
+  tab_ranfort_archo_caw_3var <- table(factor(valid_archo_caw$ranfor_class_archo_caw_3var), factor(valid_archo_caw$pgroup))
+  cm_ranfort_archo_caw_3var <- caret::confusionMatrix(tab_ranfort_archo_caw_3var)
+  cm_ranfort_archo_caw_3var$overall["Accuracy"]
+  #model not accurate enough, and is discarded 
+  
+  #bird dataset
+  ranfor_m_bird_caw_3var <- randomForest(pgroup ~ cah_caw + hp_caw + lpre_caw, data = resam_bird_caw, ntree = 500, proximity = TRUE)
+  
+  #validate with the test dataset
+  valid_bird_caw$ranfor_class_bird_caw_3var <- predict(ranfor_m_bird_caw_3var, newdata = valid_bird_caw)
+  tab_ranfort_bird_caw_3var <- table(factor(valid_bird_caw$ranfor_class_bird_caw_3var), factor(valid_bird_caw$pgroup))
+  cm_ranfort_bird_caw_3var <- caret::confusionMatrix(tab_ranfort_bird_caw_3var)
+  cm_ranfort_bird_caw_3var$overall["Accuracy"]
+  #accuracy over 80%, the model is placed in the model list
+  cd_caw_models$ranfort_bird_3var_caw <- ranfor_m_bird_caw_3var
+  
+  #crocodylian dataset
+  ranfor_m_croc_caw_3var <- randomForest(pgroup ~ cah_caw + hp_caw + lpre_caw, data = resam_croc_caw, ntree = 500, proximity = TRUE)
+  
+  #validate with the test dataset
+  valid_croc_caw$ranfor_class_croc_caw_3var <- predict(ranfor_m_croc_caw_3var, newdata = valid_croc_caw)
+  tab_ranfort_croc_caw_3var <- table(factor(valid_croc_caw$ranfor_class_croc_caw_3var), factor(valid_croc_caw$pgroup))
+  cm_ranfort_croc_caw_3var <- caret::confusionMatrix(tab_ranfort_croc_caw_3var)
+  cm_ranfort_croc_caw_3var$overall["Accuracy"]
+  #model not accurate enough, and is discarded 
+ 
+#make predictions using majority rules in test dataset
+#standardized by f_length
+  #select the taxa and pggroup from validation datasets
+  majo_ru_archo_f <- valid_archo_f %>%
+    dplyr::select(taxa, pgroup) %>% 
+    cbind("MJR_prediction" = NA)
+  
+  #make predictions and store the results in a temporary table
+  pre_archo_f <- predict(cd_f_models, newdata = valid_archo_f)
+  
+  #various models return different classes of data, wrangle is needed.
+  #get names of the models
+  mod_list <- names(cd_f_models)
+  
+  class_list <- majo_ru_archo_f
+  #take the class predictions from lda_f models
+  for(i in 1:8){
+    class_list[i] <- data.frame(pre_archo_f[[i]][1])
+  }
+  
+  #take the class predictions from logi_f models
+  for(i in 9:15){
+    class_list[i] <- data.frame(ifelse(as.numeric(unlist(pre_archo_f[i])) > 0.50, "D", "C")) 
+  }
+
+  #take the class predictions from NaiveBayse_f models
+  for(i in 16:24){
+    class_list[i] <- data.frame(pre_archo_f[i])
+  }
+  
+  #take the class predictions from randonforest_f models
+  for(i in 25:27){
+    class_list[i] <- data.frame(pre_archo_f[i])
+  }
+  
+  #get the names for columns
+  colnames(class_list) <- mod_list[]
+  
+  #append the columns to majo_ru_archo_f
+  majo_ru_archo_f <- cbind(majo_ru_archo_f, class_list)
+  
+  #apply majority rule predictions
+  for (r in 1:nrow(majo_ru_archo_f)){
+    num_c <- rowSums(majo_ru_archo_f[r,c(4:29)] == "C")
+    num_d <- rowSums(majo_ru_archo_f[r,c(4:29)] == "D")
+    majo_ru_archo_f[[3]][r] <- ifelse(num_c > num_d, "C", "D")
+  }
+  
+  #check on accuracy with a confusion matrix
+  con_tab <- table(factor(majo_ru_archo_f$MJR_prediction), factor(majo_ru_archo_f$pgroup))
+  con_archo_f_matrix <- caret::confusionMatrix(con_tab)
+  con_archo_f_matrix$overall["Accuracy"]
+  #Accuracy 91%
+  
+#standardized by caw  
+  majo_ru_archo_caw <- valid_archo_caw %>%
+    dplyr::select(taxa, pgroup) %>% 
+    cbind("MJR_prediction" = NA)
+  
+  #make predictions and store the results in a temporary table
+  pre_archo_caw <- predict(cd_caw_models, newdata = valid_archo_caw)
+  
+  #various models return different classes of data, wrangle is needed.
+  #get names of the models
+  mod_list <- names(cd_caw_models)
+  
+  class_list <- majo_ru_archo_caw
+  #take the class predictions from lda_caw models
+  for(i in 1:3){
+    class_list[i] <- data.frame(pre_archo_caw[[i]][1])
+  }
+  
+  #take the class predictions from logi_caw models
+  for(i in 4:9){
+    class_list[i] <- data.frame(ifelse(as.numeric(unlist(pre_archo_caw[i])) > 0.50, "D", "C")) 
+  }
+  
+  #take the class predictions from NaiveBayse_caw models
+  for(i in 10:13){
+    class_list[i] <- data.frame(pre_archo_caw[i])
+  }
+  
+  #take the class predictions from randonforest_caw model
+  class_list[14] <- data.frame(pre_archo_caw[14])
+  
+  #get the names for columns
+  colnames(class_list) <- mod_list[]
+  
+  #append the columns to majo_ru_archo_caw
+  majo_ru_archo_caw <- cbind(majo_ru_archo_caw, class_list)
+  
+  #apply majority rule predictions
+  for (r in 1:nrow(majo_ru_archo_caw)){
+    num_c <- rowSums(majo_ru_archo_caw[r,c(4:17)] == "C")
+    num_d <- rowSums(majo_ru_archo_caw[r,c(4:17)] == "D")
+    majo_ru_archo_caw[[3]][r] <- ifelse(num_c > num_d, "C", "D")
+  }
+  
+  #check on accuracy with a confusion matrix
+  con_tab <- table(factor(majo_ru_archo_caw$MJR_prediction), factor(majo_ru_archo_caw$pgroup))
+  con_archo_caw_matrix <- caret::confusionMatrix(con_tab)
+  con_archo_caw_matrix$overall["Accuracy"]
+  #Accuracy 70%
+  #accuracy is low may be caused by the fact that only two croc models are used 
+  
+#predict only on valid_bird data
+  majo_ru_bird_caw <- valid_bird_caw %>%
+    dplyr::select(taxa, pgroup) %>% 
+    cbind("MJR_prediction" = NA)
+  
+  #make predictions and store the results in a temporary table
+  pre_bird_caw <- predict(cd_caw_models, newdata = valid_bird_caw)
+  
+  #various models return different classes of data, wrangle is needed.
+  #get names of the models
+  mod_list <- names(cd_caw_models)
+  
+  class_list <- majo_ru_bird_caw
+  #take the class predictions from lda_caw models
+  for(i in 1:3){
+    class_list[i] <- data.frame(pre_bird_caw[[i]][1])
+  }
+  
+  #take the class predictions from logi_caw models
+  for(i in 4:9){
+    class_list[i] <- data.frame(ifelse(as.numeric(unlist(pre_bird_caw[i])) > 0.50, "D", "C")) 
+  }
+  
+  #take the class predictions from NaiveBayse_caw models
+  for(i in 10:13){
+    class_list[i] <- data.frame(pre_bird_caw[i])
+  }
+  
+  #take the class predictions from randonforest_caw model
+  class_list[14] <- data.frame(pre_bird_caw[14])
+  
+  #get the names for columns
+  colnames(class_list) <- mod_list[]
+  
+  #append the columns to majo_ru_archo_caw
+  majo_ru_bird_caw <- cbind(majo_ru_bird_caw, class_list)
+  
+  #apply majority rule predictions
+  for (r in 1:nrow(majo_ru_bird_caw)){
+    num_c <- rowSums(majo_ru_bird_caw[r,c(4:17)] == "C")
+    num_d <- rowSums(majo_ru_bird_caw[r,c(4:17)] == "D")
+    majo_ru_bird_caw[[3]][r] <- ifelse(num_c > num_d, "C", "D")
+  }
+  
+  #check on accuracy with a confusion matrix
+  con_tab <- table(factor(majo_ru_bird_caw$MJR_prediction), factor(majo_ru_bird_caw$pgroup))
+  con_archo_b_caw_matrix <- caret::confusionMatrix(con_tab)
+  con_archo_b_caw_matrix$overall["Accuracy"]
+  #Accuracy 89%
+
+#use only bird data to estimate accuracy again
+ #bird_caw only
+  majo_ru_bird_only_caw <- valid_bird_caw %>%
+    dplyr::select(taxa, pgroup) %>% 
+    cbind("MJR_prediction" = NA)
+ 
+  #take out only bird models from cd_caw_models
+  cd_bird_only_caw_models <- cd_caw_models[-c(4, 5)]
+   
+  #make predictions and store the results in a temporary table
+  pre_bird_only_caw <- predict(cd_bird_only_caw_models, newdata = valid_bird_caw)
+  
+  #various models return different classes of data, wrangle is needed.
+  #get names of the models
+  mod_bird_only_caw_list <- names(cd_bird_only_caw_models)
+  
+  class_list <- majo_ru_bird_only_caw
+  #take the class predictions from lda_caw models
+  for(i in 1:3){
+    class_list[i] <- data.frame(pre_bird_only_caw[[i]][1])
+  }
+  
+  #take the class predictions from logi_caw models
+  for(i in 4:7){
+    class_list[i] <- data.frame(ifelse(as.numeric(unlist(pre_bird_only_caw[i])) > 0.50, "D", "C")) 
+  }
+  
+  #take the class predictions from NaiveBayse_caw models
+  for(i in 8:11){
+    class_list[i] <- data.frame(pre_bird_only_caw[i])
+  }
+  
+  #take the class predictions from randonforest_caw model
+  class_list[12] <- data.frame(pre_bird_only_caw[12])
+  
+  #get the names for columns
+  colnames(class_list) <- mod_bird_only_caw_list[]
+  
+  #append the columns to majo_ru_archo_f
+  majo_ru_bird_only_caw <- cbind(majo_ru_bird_only_caw, class_list)
+  
+  #apply majority rule predictions
+  for (r in 1:nrow(majo_ru_bird_only_caw)){
+    num_c <- rowSums(majo_ru_bird_only_caw[r,c(4:15)] == "C")
+    num_d <- rowSums(majo_ru_bird_only_caw[r,c(4:15)] == "D")
+    majo_ru_bird_only_caw[[3]][r] <- ifelse(num_c > num_d, "C", "D")
+  }
+  
+  #check on accuracy with a confusion matrix
+  con_tab <- table(factor(majo_ru_bird_only_caw$MJR_prediction), factor(majo_ru_bird_only_caw$pgroup))
+  con_b_caw_matrix <- caret::confusionMatrix(con_tab)
+  con_b_caw_matrix$overall["Accuracy"]
+  #accuracy at 88% and no obvious different with predictions including croc models
+
+#predict valid_croc using croc models
+  cd_croc_caw_models <- cd_caw_models[c(4,5)]
+  majo_ru_croc_caw <- valid_croc_caw %>%
+    dplyr::select(taxa, pgroup) %>% 
+    cbind("MJR_prediction" = NA)
+  
+  #make predictions and store the results in a temporary table
+  pre_croc_caw <- predict(cd_croc_caw_models, newdata = valid_croc_caw)
+  
+  #various models return different classes of data, wrangle is needed.
+  #get names of the models
+  mod_list <- names(cd_croc_caw_models)
+  
+  class_list <- majo_ru_croc_caw
+  #take the class predictions from logi_caw models
+  for(i in 1:2){
+    class_list[i] <- data.frame(ifelse(as.numeric(unlist(pre_croc_caw[i])) > 0.50, "D", "C")) 
+  }
+
+  #get the names for columns
+  colnames(class_list) <- mod_list[]
+  
+  #append the columns to majo_ru_archo_caw
+  majo_ru_croc_caw <- cbind(majo_ru_croc_caw, class_list)
+  
+  #apply majority rule predictions
+  for (r in 1:nrow(majo_ru_croc_caw)){
+    num_c <- rowSums(majo_ru_croc_caw[r,c(4:5)] == "C")
+    num_d <- rowSums(majo_ru_croc_caw[r,c(4:5)] == "D")
+    if(num_c > num_d){
+      majo_ru_croc_caw[[3]][r] = "C"
+    } else if(num_c < num_d){
+      majo_ru_croc_caw[[3]][r] = "D"
+    } else {majo_ru_croc_caw[[3]][r] = "Uncertained"
+    } 
+  }
+  
+  #check on accuracy with a confusion matrix
+  #filter out the uncertained rows
+  con_data <- majo_ru_croc_caw %>% drop_na(MJR_prediction)
+  con_tab <- table(factor(con_data$MJR_prediction, levels = c("C", "D")), factor(con_data$pgroup, levels = c("C", "D")))
+  con_croc_caw_matrix <- caret::confusionMatrix(con_tab)
+  con_croc_caw_matrix$overall["Accuracy"]
+  
+  
+  
+#make predictions on fossil dataset
+ #cd_caw_models are used as f_length is not measured in fossil taxa
+  majo_ru_fossil_caw <- fossil_caw %>%
+    dplyr::select(taxa, p_num, pgroup, t2_dp) %>% 
+    cbind("MJR_prediction" = NA)
+  
+  #make predictions and store the results in a temporary table
+  pre_fossil_caw <- predict(cd_caw_models, newdata = fossil_caw)
+  
+  #various models return different classes of data, wrangle is needed.
+  #get names of the models
+  mod_list <- names(cd_caw_models)
+  
+  class_list <- majo_ru_fossil_caw
+  #take the class predictions from lda_caw models
+  for(i in 1:3){
+    class_list[i] <- data.frame(pre_fossil_caw[[i]][1])
+  }
+  
+  #take the class predictions from logi_caw models
+  for(i in 4:9){
+    class_list[i] <- data.frame(ifelse(as.numeric(unlist(pre_fossil_caw[i])) > 0.50, "D", "C")) 
+  }
+  
+  #take the class predictions from NaiveBayse_caw models
+  for(i in 10:13){
+    class_list[i] <- data.frame(pre_fossil_caw[i])
+  }
+  
+  #take the class predictions from randonforest_caw model
+  class_list[14] <- data.frame(pre_fossil_caw[14])
+  
+  #get the names for columns
+  colnames(class_list) <- mod_list[]
+  
+  #append the columns to majo_ru_archo_caw
+  majo_ru_fossil_caw <- cbind(majo_ru_fossil_caw, class_list)
+  
+  #apply majority rule predictions
+  num_name <- c("num_c", "num_d", "num_na")
+  for (r in 1:nrow(majo_ru_fossil_caw)){
+    num_c <- rowSums(majo_ru_fossil_caw[r,c(6:19)] == "C", na.rm = TRUE)
+    num_d <- rowSums(majo_ru_fossil_caw[r,c(6:19)] == "D", na.rm = TRUE)
+    num_na <- rowSums(is.na(majo_ru_fossil_caw[r,c(6:19)]))
+    if(num_name[which.max(c(num_c, num_d, num_na))] == "num_c"){
+      majo_ru_fossil_caw[[5]][r] = "C"
+    } else if(num_name[which.max(c(num_c, num_d, num_na))] == "num_d"){
+      majo_ru_fossil_caw[[5]][r] = "D"
+    } else if(num_name[which.max(c(num_c, num_d, num_na))] == "num_na"){
+      if (num_c > num_d){
+        majo_ru_fossil_caw[[5]][r] = "C"
+      } else if (num_c < num_d){
+        majo_ru_fossil_caw[[5]][r] = "D"  
+      }
+    } else {
+      majo_ru_fossil_caw[[5]][r] = "Uncertained"  
+    }
+  }
+#predictions are inconsistent with identifications in the literature though predictions from some theropods may be correct
+  
+  #predict all fossils using only bird models 
+  #cd_caw_models are used as f_length is not measured in fossil taxa
+  majo_ru_avemeta_caw <- fossil_caw %>%
+    dplyr::select(taxa, p_num, pgroup, t2_dp) %>% 
+    cbind("MJR_prediction" = NA)
+  
+  #make predictions and store the results in a temporary table
+  pre_avemeta_caw <- predict(cd_caw_models[-c(4, 5)], newdata = fossil_caw)
+  
+  #various models return different classes of data, wrangle is needed.
+  #get names of the models
+  mod_list <- names(cd_caw_models[-c(4, 5)])
+  
+  class_list <- majo_ru_avemeta_caw
+  #take the class predictions from lda_caw models
+  for(i in 1:3){
+    class_list[i] <- data.frame(pre_avemeta_caw[[i]][1])
+  }
+  
+  #take the class predictions from logi_caw models
+  for(i in 4:7){
+    class_list[i] <- data.frame(ifelse(as.numeric(unlist(pre_avemeta_caw[i])) > 0.50, "D", "C")) 
+  }
+  
+  #take the class predictions from NaiveBayse_caw models
+  for(i in 8:11){
+    class_list[i] <- data.frame(pre_avemeta_caw[i])
+  }
+  
+  #take the class predictions from randonforest_caw model
+  class_list[12] <- data.frame(pre_avemeta_caw[12])
+  
+  #get the names for columns
+  colnames(class_list) <- mod_list[]
+  
+  #append the columns to majo_ru_archo_caw
+  majo_ru_avemeta_caw <- cbind(majo_ru_avemeta_caw, class_list)
+  
+  #apply majority rule predictions
+  num_name <- c("num_c", "num_d", "num_na")
+  for (r in 1:nrow(majo_ru_fossil_caw)){
+    num_c <- rowSums(majo_ru_avemeta_caw[r,c(6:17)] == "C", na.rm = TRUE)
+    num_d <- rowSums(majo_ru_avemeta_caw[r,c(6:17)] == "D", na.rm = TRUE)
+    num_na <- rowSums(is.na(majo_ru_avemeta_caw[r,c(6:17)]))
+    if(num_name[which.max(c(num_c, num_d, num_na))] == "num_c"){
+      majo_ru_avemeta_caw[[5]][r] = "C"
+    } else if(num_name[which.max(c(num_c, num_d, num_na))] == "num_d"){
+      majo_ru_avemeta_caw[[5]][r] = "D"
+    } else if(num_name[which.max(c(num_c, num_d, num_na))] == "num_na"){
+      if (num_c > num_d){
+        majo_ru_avemeta_caw[[5]][r] = "C"
+      } else if (num_c < num_d){
+        majo_ru_avemeta_caw[[5]][r] = "D"  
+      }
+    } else {
+      majo_ru_avemeta_caw[[5]][r] = "Uncertained"  
+    }
+  }
+  #predictions are inconsistent with identifications in the literature though some fossil theropods have accurate predictions.
+  
+#predict all fossils using croc models
+  cd_croc_caw_models <- cd_caw_models[c(4,5)]
+  majo_ru_fossil_c_caw <- fossil_caw %>%
+    dplyr::select(taxa, p_num, pgroup, t2_dp) %>% 
+    cbind("MJR_prediction" = NA)
+  
+  #make predictions and store the results in a temporary table
+  pre_fossil_c_caw <- predict(cd_croc_caw_models, newdata = fossil_caw)
+  
+  #various models return different classes of data, wrangle is needed.
+  #get names of the models
+  mod_list <- names(cd_croc_caw_models)
+  
+  class_list <- majo_ru_fossil_c_caw
+  #take the class predictions from logi_caw models
+  for(i in 1:2){
+    class_list[i] <- data.frame(ifelse(as.numeric(unlist(pre_fossil_c_caw[i])) > 0.50, "D", "C")) 
+  }
+  
+  #get the names for columns
+  colnames(class_list) <- mod_list[]
+  
+  #append the columns to majo_ru_archo_caw
+  majo_ru_fossil_c_caw <- cbind(majo_ru_fossil_c_caw, class_list)
+  
+  #apply majority rule predictions
+  num_name <- c("num_c", "num_d", "num_na")
+  for (r in 1:nrow(majo_ru_fossil_c_caw)){
+    num_c <- rowSums(majo_ru_fossil_c_caw[r,c(6:7)] == "C", na.rm = TRUE)
+    num_d <- rowSums(majo_ru_fossil_c_caw[r,c(6:7)] == "D", na.rm = TRUE)
+    num_na <- rowSums(is.na(majo_ru_fossil_c_caw[r,c(6:7)]))
+    if(num_name[which.max(c(num_c, num_d, num_na))] == "num_c"){
+      majo_ru_fossil_c_caw[[5]][r] = "C"
+    } else if(num_name[which.max(c(num_c, num_d, num_na))] == "num_d"){
+      majo_ru_fossil_c_caw[[5]][r] = "D"
+    } else if(num_name[which.max(c(num_c, num_d, num_na))] == "num_na"){
+      if (num_c > num_d){
+        majo_ru_fossil_c_caw[[5]][r] = "C"
+      } else if (num_c < num_d){
+        majo_ru_fossil_c_caw[[5]][r] = "D"  
+      }
+    } else {
+      majo_ru_fossil_c_caw[[5]][r] = "Uncertained"  
+    }
+  }
+  #predictions are still inconsistent with identifications in the literature
+
+#high accuracy in extant birds and crocodylians suggest classifications using vertebral measurements is plausible.
+#f_length models in generla have higher accuracy compare to caw models
+#potential phylogenetic signals and small traninig dataset may contribute to the predictions being inconsistent with identifications in the literature
+#level 2 extant phylogenetic bracket may be needed to construct reliable training data in fossil archosaurs
+  
+
+
+#export tables and creating visualizations
+#create a table for predicted C and D in fossils
+  fossil_MJR_list <- list(majo_ru_fossil_caw, majo_ru_avemeta_caw, majo_ru_fossil_c_caw)
+  names(fossil_MJR_list) <- c("majo_ru_fossil_caw", "majo_ru_avemeta_caw", "majo_ru_fossil_c_caw")
+  fossil_predict <- data.frame(fossil_MJR_list$majo_ru_fossil_caw[c(1, 2, 4, 5)], fossil_MJR_list$majo_ru_avemeta_caw[5], fossil_MJR_list$majo_ru_fossil_c_caw[5])
+  names(fossil_predict)[4:6] <- c("majo_ru_fossil_caw", "majo_ru_avemeta_caw", "majo_ru_fossil_c_caw")
+  fossil_cd_predict <- fossil_predict %>% 
+    filter(t2_dp == "CD")
+  write.csv(fossil_predict, "D:/3_Code/R_projects/cervicodorsal_transition/cd_predicted_MJR.csv", row.names = FALSE)
+  
+# organise datasets for plotting
+# lda data
+  #standardized by f_length
+  cm_lda_archo_f <- list(cm_lda_archo_f_3var, cm_lda_archo_f_cl, cm_lda_archo_f_cah, cm_lda_archo_f_caw, cm_lda_archo_f_hp, cm_lda_archo_f_appp, cm_lda_archo_f_lpre, cm_lda_archo_f_lpost)
+  cm_lda_bird_f <- list(cm_lda_bird_f_3var, cm_lda_bird_f_cl, cm_lda_bird_f_cah, cm_lda_bird_f_caw, cm_lda_bird_f_hp, cm_lda_bird_f_appp, cm_lda_bird_f_lpre, cm_lda_bird_f_lpost)
+  cm_lda_croc_f <- list(cm_lda_croc_f_3var, cm_lda_croc_f_cl, cm_lda_croc_f_cah, cm_lda_croc_f_caw, cm_lda_croc_f_hp, cm_lda_croc_f_appp, cm_lda_croc_f_lpre, cm_lda_croc_f_lpost)
+  names(cm_lda_archo_f) <- c("ar_f_3var", "ar_f_cl", "ar_f_cah", "ar_f_caw", "ar_f_hp", "ar_f_appp", "ar_f_lpre", "ar_f_lpost")
+  names(cm_lda_bird_f) <- c("b_f_3var", "b_f_cl", "b_f_cah", "b_f_caw", "b_f_hp", "b_f_appp", "b_f_lpre", "b_f_lpost")
+  names(cm_lda_croc_f) <- c("c_f_3var", "c_f_cl", "c_f_cah", "c_f_caw", "c_f_hp", "c_f_appp", "c_f_lpre", "c_f_lpost")
+  
+  #standardized by caw
+  cm_lda_archo_caw <- list(cm_lda_archo_caw_3var, cm_lda_archo_caw_cl, cm_lda_archo_caw_cah, cm_lda_archo_caw_hp, cm_lda_archo_caw_appp, cm_lda_archo_caw_lpre, cm_lda_archo_caw_lpost)
+  cm_lda_bird_caw <- list(cm_lda_bird_caw_3var, cm_lda_bird_caw_cl, cm_lda_bird_caw_cah, cm_lda_bird_caw_hp, cm_lda_bird_caw_appp, cm_lda_bird_caw_lpre, cm_lda_bird_caw_lpost)
+  cm_lda_croc_caw <- list(cm_lda_croc_caw_3var, cm_lda_croc_caw_cl, cm_lda_croc_caw_cah, cm_lda_croc_caw_hp, cm_lda_croc_caw_appp, cm_lda_croc_caw_lpre, cm_lda_croc_caw_lpost)
+  names(cm_lda_archo_caw) <- c("ar_caw_3var", "ar_caw_cl", "ar_caw_cah", "ar_caw_hp", "ar_caw_appp", "ar_caw_lpre", "ar_caw_lpost")
+  names(cm_lda_bird_caw) <- c("b_caw_3var", "b_caw_cl", "b_caw_cah", "b_caw_hp", "b_caw_appp", "b_caw_lpre", "b_caw_lpost")
+  names(cm_lda_croc_caw) <- c("c_caw_3var", "c_caw_cl", "c_caw_cah", "c_caw_hp", "c_caw_appp", "c_caw_lpre", "c_caw_lpost")
+  
+  lda_cm_list <- c(cm_lda_archo_f, cm_lda_bird_f, cm_lda_croc_f, cm_lda_archo_caw, cm_lda_bird_caw, cm_lda_croc_caw)
+  mod_names <- names(lda_cm_list)
+  lda_mod_accu <- c()
+  for (i in 1:length(lda_cm_list)){
+    lda_mod_accu[i] <- (lda_cm_list[[i]][[3]][1])
+  }
+  stan_groups <- c(rep("f_length", length(c(cm_lda_archo_f, cm_lda_bird_f, cm_lda_croc_f))), 
+                   rep("caw", length(c(cm_lda_archo_caw, cm_lda_bird_caw, cm_lda_croc_caw))))
+  
+  
+  # organise data for plotting
+  lda_bar_data <- data.frame(
+    mod_names,
+    taxa = NA,
+    stan_groups,
+    var = NA,
+    lda_mod_accu
+  )
+
+  for(i in 1: length(lda_bar_data$mod_names)){  
+    if(str_detect(lda_bar_data$mod_names[i], "ar_")){
+      lda_bar_data$taxa[i] <- "archo"
+    }else if(str_detect(lda_bar_data$mod_names[i], "b_")){
+      lda_bar_data$taxa[i] <- "bird"
+    }else if(str_detect(lda_bar_data$mod_names[i], "c_")){
+      lda_bar_data$taxa[i] <- "croc"
+    }else{
+      print("Hmm... something is off!")
+    }
+  }  
+  
+  for(i in 1: length(lda_bar_data$mod_names)){  
+    if(str_detect(lda_bar_data$mod_names[i], "_3var")){
+      lda_bar_data$var[i] <- "3var"
+    }else if(str_detect(lda_bar_data$mod_names[i], "_cl")){
+      lda_bar_data$var[i] <- "cl"
+    }else if(str_detect(lda_bar_data$mod_names[i], "_cah")){
+      lda_bar_data$var[i] <- "cah"
+    }else if((str_detect(lda_bar_data$mod_names[i], "_caw") & !str_detect(lda_bar_data$mod_names[i], "_caw_"))){
+      lda_bar_data$var[i] <- "caw"
+    }else if(str_detect(lda_bar_data$mod_names[i], "_hp")){
+      lda_bar_data$var[i] <- "hp"
+    }else if(str_detect(lda_bar_data$mod_names[i], "_appp")){
+      lda_bar_data$var[i] <- "appp"
+    }else if(str_detect(lda_bar_data$mod_names[i], "_lpre")){
+      lda_bar_data$var[i] <- "lpre"
+    }else if(str_detect(lda_bar_data$mod_names[i], "_lpost")){
+      lda_bar_data$var[i] <- "lpost"
+    }else{
+      print("Hmm... something is off!")
+    }
+  }  
+  
+  #making plots
+  lda_archo_p <- ggplot(data = lda_bar_data[lda_bar_data$taxa == "archo", ], 
+              aes(x = var, y = lda_mod_accu, fill = stan_groups)) + 
+    geom_bar(stat = "identity", position = "dodge") +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1), expand = c(0, 0), limits = c(0, 1)) +
+    scale_fill_manual(name = "Standardised variables", values = c("#FF4C00", "#041E42")) +
+    xlab("Model variables") +
+    ylab("Model accuracy (per)") +
+    theme_classic() +
+    theme(axis.line = element_line(colour = "black", linewidth = 0.5, linetype = "solid"), 
+          axis.text.y = element_text(size = 10),
+          axis.text.x = element_text(angle = 90, size = 10),
+          axis.title = element_text(size = 12))
+  
+  lda_bird_p <- ggplot(data = lda_bar_data[lda_bar_data$taxa == "bird", ], 
+                        aes(x = var, y = lda_mod_accu, fill = stan_groups)) + 
+    geom_bar(stat = "identity", position = "dodge") +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1), expand = c(0, 0), limits = c(0, 1)) +
+    scale_fill_manual(name = "Standardised variables", values = c("#FF4C00", "#041E42")) +
+    xlab("Model variables") +
+    ylab("Model accuracy (per)") +
+    theme_classic() +
+    theme(axis.line = element_line(colour = "black", linewidth = 0.5, linetype = "solid"), 
+          axis.text.y = element_text(size = 10),
+          axis.text.x = element_text(angle = 90, size = 10),
+          axis.title = element_text(size = 12))
+  
+  lda_croc_p <- ggplot(data = lda_bar_data[lda_bar_data$taxa == "croc", ], 
+                        aes(x = var, y = lda_mod_accu, fill = stan_groups)) + 
+    geom_bar(stat = "identity", position = "dodge") +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1), expand = c(0, 0), limits = c(0, 1)) +
+    scale_fill_manual(name = "Standardised variables", values = c("#FF4C00", "#041E42")) +
+    xlab("Model variables") +
+    ylab("Model accuracy (per)") +
+    theme_classic() +
+    theme(axis.line = element_line(colour = "black", linewidth = 0.5, linetype = "solid"), 
+          axis.text.y = element_text(size = 10),
+          axis.text.x = element_text(angle = 90, size = 10),
+          axis.title = element_text(size = 12))
+  
+  
+#logi data
+  #standardized by f_length
+  cm_logi_archo_f <- list(cm_logi_archo_f_3var, cm_logi_archo_f_cl_1var, cm_logi_archo_f_cah_1var, 
+                          cm_logi_archo_f_caw_1var, cm_logi_archo_f_hp_1var, cm_logi_archo_f_appp_1var, 
+                          cm_logi_archo_f_lpre_1var, cm_logi_archo_f_lpost_1var)
+  cm_logi_bird_f <- list(cm_logi_bird_f_3var, cm_logi_bird_f_cl_1var, cm_logi_bird_f_cah_1var, cm_logi_bird_f_caw_1var, 
+                         cm_logi_bird_f_hp_1var, cm_logi_bird_f_appp_1var, cm_logi_bird_f_lpre_1var, cm_logi_bird_f_lpost_1var)
+  cm_logi_croc_f <- list(cm_logi_croc_f_3var, cm_logi_croc_f_cl_1var, cm_logi_croc_f_cah_1var, cm_logi_croc_f_caw_1var,
+                         cm_logi_croc_f_hp_1var, cm_logi_croc_f_appp_1var, cm_logi_croc_f_lpre_1var, cm_logi_croc_f_lpost_1var)
+  names(cm_logi_archo_f) <- c("ar_f_3var", "ar_f_cl", "ar_f_cah", "ar_f_caw", "ar_f_hp", "ar_f_appp", "ar_f_lpre", "ar_f_lpost")
+  names(cm_logi_bird_f) <- c("b_f_3var", "b_f_cl", "b_f_cah", "b_f_caw", "b_f_hp", "b_f_appp", "b_f_lpre", "b_f_lpost")
+  names(cm_logi_croc_f) <- c("c_f_3var", "c_f_cl", "c_f_cah", "c_f_caw", "c_f_hp", "c_f_appp", "c_f_lpre", "c_f_lpost")
+  
+  #standardized by caw
+  cm_logi_archo_caw <- list(cm_logi_archo_caw_3var, cm_logi_archo_caw_cl_1var, cm_logi_archo_caw_cah_1var, cm_logi_archo_caw_hp_1var, 
+                            cm_logi_archo_caw_appp_1var, cm_logi_archo_caw_lpre_1var, cm_logi_archo_caw_lpost_1var)
+  cm_logi_bird_caw <- list(cm_logi_bird_caw_3var, cm_logi_bird_caw_cl_1var, cm_logi_bird_caw_cah_1var, cm_logi_bird_caw_hp_1var, 
+                           cm_logi_bird_caw_appp_1var, cm_logi_bird_caw_lpre_1var, cm_logi_bird_caw_lpost_1var)
+  cm_logi_croc_caw <- list(cm_logi_croc_caw_3var, cm_logi_croc_caw_cl_1var, cm_logi_croc_caw_cah_1var, cm_logi_croc_caw_hp_1var, 
+                           cm_logi_croc_caw_appp_1var, cm_logi_croc_caw_lpre_1var, cm_logi_croc_caw_lpost_1var)
+  names(cm_logi_archo_caw) <- c("ar_caw_3var", "ar_caw_cl", "ar_caw_cah", "ar_caw_hp", "ar_caw_appp", "ar_caw_lpre", "ar_caw_lpost")
+  names(cm_logi_bird_caw) <- c("b_caw_3var", "b_caw_cl", "b_caw_cah", "b_caw_hp", "b_caw_appp", "b_caw_lpre", "b_caw_lpost")
+  names(cm_logi_croc_caw) <- c("c_caw_3var", "c_caw_cl", "c_caw_cah", "c_caw_hp", "c_caw_appp", "c_caw_lpre", "c_caw_lpost")
+  
+  logi_cm_list <- c(cm_logi_archo_f, cm_logi_bird_f, cm_logi_croc_f, cm_logi_archo_caw, cm_logi_bird_caw, cm_logi_croc_caw)
+  mod_names <- names(logi_cm_list)
+  logi_mod_accu <- c()
+  for (i in 1:length(logi_cm_list)){
+    logi_mod_accu[i] <- (logi_cm_list[[i]][[3]][1])
+  }
+  stan_groups <- c(rep("f_length", length(c(cm_logi_archo_f, cm_logi_bird_f, cm_logi_croc_f))), 
+                   rep("caw", length(c(cm_logi_archo_caw, cm_logi_bird_caw, cm_logi_croc_caw))))
+  
+  
+  # organise data for plotting
+  logi_bar_data <- data.frame(
+    mod_names,
+    taxa = NA,
+    stan_groups,
+    var = NA,
+    logi_mod_accu
+  )
+  
+  for(i in 1: length(logi_bar_data$mod_names)){  
+    if(str_detect(logi_bar_data$mod_names[i], "ar_")){
+      logi_bar_data$taxa[i] <- "archo"
+    }else if(str_detect(logi_bar_data$mod_names[i], "b_")){
+      logi_bar_data$taxa[i] <- "bird"
+    }else if(str_detect(logi_bar_data$mod_names[i], "c_")){
+      logi_bar_data$taxa[i] <- "croc"
+    }else{
+      print("Hmm... something is off!")
+    }
+  }  
+  
+  for(i in 1: length(logi_bar_data$mod_names)){  
+    if(str_detect(logi_bar_data$mod_names[i], "_3var")){
+      logi_bar_data$var[i] <- "3var"
+    }else if(str_detect(logi_bar_data$mod_names[i], "_cl")){
+      logi_bar_data$var[i] <- "cl"
+    }else if(str_detect(logi_bar_data$mod_names[i], "_cah")){
+      logi_bar_data$var[i] <- "cah"
+    }else if((str_detect(logi_bar_data$mod_names[i], "_caw") & !str_detect(logi_bar_data$mod_names[i], "_caw_"))){
+      logi_bar_data$var[i] <- "caw"
+    }else if(str_detect(logi_bar_data$mod_names[i], "_hp")){
+      logi_bar_data$var[i] <- "hp"
+    }else if(str_detect(logi_bar_data$mod_names[i], "_appp")){
+      logi_bar_data$var[i] <- "appp"
+    }else if(str_detect(logi_bar_data$mod_names[i], "_lpre")){
+      logi_bar_data$var[i] <- "lpre"
+    }else if(str_detect(logi_bar_data$mod_names[i], "_lpost")){
+      logi_bar_data$var[i] <- "lpost"
+    }else{
+      print("Hmm... something is off!")
+    }
+  }  
+  
+  #making plots
+  logi_archo_p <- ggplot(data = logi_bar_data[logi_bar_data$taxa == "archo", ], 
+                        aes(x = var, y = logi_mod_accu, fill = stan_groups)) + 
+    geom_bar(stat = "identity", position = "dodge") +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1), expand = c(0, 0), limits = c(0, 1)) +
+    scale_fill_manual(name = "Standardised variables", values = c("#FF4C00", "#041E42")) +
+    xlab("Model variables") +
+    ylab("Model accuracy (per)") +
+    theme_classic() +
+    theme(axis.line = element_line(colour = "black", linewidth = 0.5, linetype = "solid"), 
+          axis.text.y = element_text(size = 10),
+          axis.text.x = element_text(angle = 90, size = 10),
+          axis.title = element_text(size = 12))
+  
+  logi_bird_p <- ggplot(data = logi_bar_data[logi_bar_data$taxa == "bird", ], 
+                       aes(x = var, y = logi_mod_accu, fill = stan_groups)) + 
+    geom_bar(stat = "identity", position = "dodge") +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1), expand = c(0, 0), limits = c(0, 1)) +
+    scale_fill_manual(name = "Standardised variables", values = c("#FF4C00", "#041E42")) +
+    xlab("Model variables") +
+    ylab("Model accuracy (per)") +
+    theme_classic() +
+    theme(axis.line = element_line(colour = "black", linewidth = 0.5, linetype = "solid"), 
+          axis.text.y = element_text(size = 10),
+          axis.text.x = element_text(angle = 90, size = 10),
+          axis.title = element_text(size = 12))
+  
+  logi_croc_p <- ggplot(data = logi_bar_data[logi_bar_data$taxa == "croc", ], 
+                       aes(x = var, y = logi_mod_accu, fill = stan_groups)) + 
+    geom_bar(stat = "identity", position = "dodge") +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1), expand = c(0, 0), limits = c(0, 1)) +
+    scale_fill_manual(name = "Standardised variables", values = c("#FF4C00", "#041E42")) +
+    xlab("Model variables") +
+    ylab("Model accuracy (per)") +
+    theme_classic() +
+    theme(axis.line = element_line(colour = "black", linewidth = 0.5, linetype = "solid"), 
+          axis.text.y = element_text(size = 10),
+          axis.text.x = element_text(angle = 90, size = 10),
+          axis.title = element_text(size = 12))  
+  
+  
+#NaiveBayes
+  #standardized by f_length
+  cm_bay_archo_f <- list(cm_bay_archo_f_3var, cm_bay_archo_f_cl_1var, cm_bay_archo_f_cah_1var, cm_bay_archo_f_caw_1var, 
+                         cm_bay_archo_f_hp_1var, cm_bay_archo_f_appp_1var, cm_bay_archo_f_lpre_1var, cm_bay_archo_f_lpost_1var)
+  cm_bay_bird_f <- list(cm_bay_bird_f_3var, cm_bay_bird_f_cl_1var, cm_bay_bird_f_cah_1var, cm_bay_bird_f_caw_1var, 
+                        cm_bay_bird_f_hp_1var, cm_bay_bird_f_appp_1var, cm_bay_bird_f_lpre_1var, cm_bay_bird_f_lpost_1var)
+  cm_bay_croc_f <- list(cm_bay_croc_f_3var, cm_bay_croc_f_cl_1var, cm_bay_croc_f_cah_1var, cm_bay_croc_f_caw_1var, 
+                        cm_bay_croc_f_hp_1var, cm_bay_croc_f_appp_1var, cm_bay_croc_f_lpre_1var, cm_bay_croc_f_lpost_1var)
+  names(cm_bay_archo_f) <- c("ar_f_3var", "ar_f_cl", "ar_f_cah", "ar_f_caw", "ar_f_hp", "ar_f_appp", "ar_f_lpre", "ar_f_lpost")
+  names(cm_bay_bird_f) <- c("b_f_3var", "b_f_cl", "b_f_cah", "b_f_caw", "b_f_hp", "b_f_appp", "b_f_lpre", "b_f_lpost")
+  names(cm_bay_croc_f) <- c("c_f_3var", "c_f_cl", "c_f_cah", "c_f_caw", "c_f_hp", "c_f_appp", "c_f_lpre", "c_f_lpost")
+  
+  #standardized by caw
+  cm_bay_archo_caw <- list(cm_bay_archo_caw_3var, cm_bay_archo_caw_cl_1var, cm_bay_archo_caw_cah_1var, cm_bay_archo_caw_hp_1var, 
+                           cm_bay_archo_caw_appp_1var, cm_bay_archo_caw_lpre_1var, cm_bay_archo_caw_lpost_1var)
+  cm_bay_bird_caw <- list(cm_bay_bird_caw_3var, cm_bay_bird_caw_cl_1var, cm_bay_bird_caw_cah_1var, cm_bay_bird_caw_hp_1var, 
+                          cm_bay_bird_caw_appp_1var, cm_bay_bird_caw_lpre_1var, cm_bay_bird_caw_lpost_1var)
+  cm_bay_croc_caw <- list(cm_bay_croc_caw_3var, cm_bay_croc_caw_cl_1var, cm_bay_croc_caw_cah_1var, cm_bay_croc_caw_hp_1var, 
+                          cm_bay_croc_caw_appp_1var, cm_bay_croc_caw_lpre_1var, cm_bay_croc_caw_lpost_1var)
+  names(cm_bay_archo_caw) <- c("ar_caw_3var", "ar_caw_cl", "ar_caw_cah", "ar_caw_hp", "ar_caw_appp", "ar_caw_lpre", "ar_caw_lpost")
+  names(cm_bay_bird_caw) <- c("b_caw_3var", "b_caw_cl", "b_caw_cah", "b_caw_hp", "b_caw_appp", "b_caw_lpre", "b_caw_lpost")
+  names(cm_bay_croc_caw) <- c("c_caw_3var", "c_caw_cl", "c_caw_cah", "c_caw_hp", "c_caw_appp", "c_caw_lpre", "c_caw_lpost")
+  
+  bay_cm_list <- c(cm_bay_archo_f, cm_bay_bird_f, cm_bay_croc_f, cm_bay_archo_caw, cm_bay_bird_caw, cm_bay_croc_caw)
+  mod_names <- names(bay_cm_list)
+  bay_mod_accu <- c()
+  for (i in 1:length(bay_cm_list)){
+    bay_mod_accu[i] <- (bay_cm_list[[i]][[3]][1])
+  }
+  stan_groups <- c(rep("f_length", length(c(cm_bay_archo_f, cm_bay_bird_f, cm_bay_croc_f))), 
+                   rep("caw", length(c(cm_bay_archo_caw, cm_bay_bird_caw, cm_bay_croc_caw))))
+  
+  
+  # organise data for plotting
+  bay_bar_data <- data.frame(
+    mod_names,
+    taxa = NA,
+    stan_groups,
+    var = NA,
+    bay_mod_accu
+  )
+  
+  for(i in 1: length(bay_bar_data$mod_names)){  
+    if(str_detect(bay_bar_data$mod_names[i], "ar_")){
+      bay_bar_data$taxa[i] <- "archo"
+    }else if(str_detect(bay_bar_data$mod_names[i], "b_")){
+      bay_bar_data$taxa[i] <- "bird"
+    }else if(str_detect(bay_bar_data$mod_names[i], "c_")){
+      bay_bar_data$taxa[i] <- "croc"
+    }else{
+      print("Hmm... something is off!")
+    }
+  }  
+  
+  for(i in 1: length(bay_bar_data$mod_names)){  
+    if(str_detect(bay_bar_data$mod_names[i], "_3var")){
+      bay_bar_data$var[i] <- "3var"
+    }else if(str_detect(bay_bar_data$mod_names[i], "_cl")){
+      bay_bar_data$var[i] <- "cl"
+    }else if(str_detect(bay_bar_data$mod_names[i], "_cah")){
+      bay_bar_data$var[i] <- "cah"
+    }else if((str_detect(bay_bar_data$mod_names[i], "_caw") & !str_detect(bay_bar_data$mod_names[i], "_caw_"))){
+      bay_bar_data$var[i] <- "caw"
+    }else if(str_detect(bay_bar_data$mod_names[i], "_hp")){
+      bay_bar_data$var[i] <- "hp"
+    }else if(str_detect(bay_bar_data$mod_names[i], "_appp")){
+      bay_bar_data$var[i] <- "appp"
+    }else if(str_detect(bay_bar_data$mod_names[i], "_lpre")){
+      bay_bar_data$var[i] <- "lpre"
+    }else if(str_detect(bay_bar_data$mod_names[i], "_lpost")){
+      bay_bar_data$var[i] <- "lpost"
+    }else{
+      print("Hmm... something is off!")
+    }
+  }  
+  
+  #making plots
+  bay_archo_p <- ggplot(data = bay_bar_data[bay_bar_data$taxa == "archo", ], 
+                        aes(x = var, y = bay_mod_accu, fill = stan_groups)) + 
+    geom_bar(stat = "identity", position = "dodge") +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1), expand = c(0, 0), limits = c(0, 1)) +
+    scale_fill_manual(name = "Standardised variables", values = c("#FF4C00", "#041E42")) +
+    xlab("Model variables") +
+    ylab("Model accuracy (per)") +
+    theme_classic() +
+    theme(axis.line = element_line(colour = "black", linewidth = 0.5, linetype = "solid"), 
+          axis.text.y = element_text(size = 10),
+          axis.text.x = element_text(angle = 90, size = 10),
+          axis.title = element_text(size = 12))
+  
+  bay_bird_p <- ggplot(data = bay_bar_data[bay_bar_data$taxa == "bird", ], 
+                       aes(x = var, y = bay_mod_accu, fill = stan_groups)) + 
+    geom_bar(stat = "identity", position = "dodge") +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1), expand = c(0, 0), limits = c(0, 1)) +
+    scale_fill_manual(name = "Standardised variables", values = c("#FF4C00", "#041E42")) +
+    xlab("Model variables") +
+    ylab("Model accuracy (per)") +
+    theme_classic() +
+    theme(axis.line = element_line(colour = "black", linewidth = 0.5, linetype = "solid"), 
+          axis.text.y = element_text(size = 10),
+          axis.text.x = element_text(angle = 90, size = 10),
+          axis.title = element_text(size = 12))
+  
+  bay_croc_p <- ggplot(data = bay_bar_data[bay_bar_data$taxa == "croc", ], 
+                       aes(x = var, y = bay_mod_accu, fill = stan_groups)) + 
+    geom_bar(stat = "identity", position = "dodge") +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1), expand = c(0, 0), limits = c(0, 1)) +
+    scale_fill_manual(name = "Standardised variables", values = c("#FF4C00", "#041E42")) +
+    xlab("Model variables") +
+    ylab("Model accuracy (per)") +
+    theme_classic() +
+    theme(axis.line = element_line(colour = "black", linewidth = 0.5, linetype = "solid"), 
+          axis.text.y = element_text(size = 10),
+          axis.text.x = element_text(angle = 90, size = 10),
+          axis.title = element_text(size = 12))
+  
+#randomforest
+  #standardized by f_length
+  cm_ranfor_archo_f <- list(cm_ranfort_archo_f_3var)
+  cm_ranfor_bird_f <- list(cm_ranfort_bird_f_3var)
+  cm_ranfor_croc_f <- list(cm_ranfort_croc_f_3var)
+  names(cm_ranfor_archo_f) <- c("ar_f_3var")
+  names(cm_ranfor_bird_f) <- c("b_f_3var")
+  names(cm_ranfor_croc_f) <- c("c_f_3var")
+  
+  #standardized by caw
+  cm_ranfor_archo_caw <- list(cm_ranfort_archo_caw_3var)
+  cm_ranfor_bird_caw <- list(cm_ranfort_bird_caw_3var)
+  cm_ranfor_croc_caw <- list(cm_ranfort_croc_caw_3var)
+  names(cm_ranfor_archo_caw) <- c("ar_caw_3var")
+  names(cm_ranfor_bird_caw) <- c("b_caw_3var")
+  names(cm_ranfor_croc_caw) <- c("c_caw_3var")
+  
+  ranfor_cm_list <- c(cm_ranfor_archo_f, cm_ranfor_bird_f, cm_ranfor_croc_f, cm_ranfor_archo_caw, cm_ranfor_bird_caw, cm_ranfor_croc_caw)
+  mod_names <- names(ranfor_cm_list)
+  ranfort_mod_accu <- c()
+  for (i in 1:length(ranfor_cm_list)){
+    ranfort_mod_accu[i] <- (ranfor_cm_list[[i]][[3]][1])
+  }
+  stan_groups <- c(rep("f_length", length(c(cm_ranfor_archo_f, cm_ranfor_bird_f, cm_ranfor_croc_f))), 
+                   rep("caw", length(c(cm_ranfor_archo_caw, cm_ranfor_bird_caw, cm_ranfor_croc_caw))))
+  
+  
+  # organise data for plotting
+  ranfor_bar_data <- data.frame(
+    mod_names,
+    taxa = NA,
+    stan_groups,
+    var = NA,
+    ranfort_mod_accu
+  )
+  
+  for(i in 1: length(ranfor_bar_data$mod_names)){  
+    if(str_detect(ranfor_bar_data$mod_names[i], "ar_")){
+      ranfor_bar_data$taxa[i] <- "archo"
+    }else if(str_detect(ranfor_bar_data$mod_names[i], "b_")){
+      ranfor_bar_data$taxa[i] <- "bird"
+    }else if(str_detect(ranfor_bar_data$mod_names[i], "c_")){
+      ranfor_bar_data$taxa[i] <- "croc"
+    }else{
+      print("Hmm... something is off!")
+    }
+  }  
+  
+  for(i in 1: length(ranfor_bar_data$mod_names)){  
+    if(str_detect(ranfor_bar_data$mod_names[i], "_3var")){
+      ranfor_bar_data$var[i] <- "3var"
+    }else if(str_detect(ranfor_bar_data$mod_names[i], "_cl")){
+      ranfor_bar_data$var[i] <- "cl"
+    }else if(str_detect(ranfor_bar_data$mod_names[i], "_cah")){
+      ranfor_bar_data$var[i] <- "cah"
+    }else if((str_detect(ranfor_bar_data$mod_names[i], "_caw") & !str_detect(ranfor_bar_data$mod_names[i], "_caw_"))){
+      ranfor_bar_data$var[i] <- "caw"
+    }else if(str_detect(ranfor_bar_data$mod_names[i], "_hp")){
+      ranfor_bar_data$var[i] <- "hp"
+    }else if(str_detect(ranfor_bar_data$mod_names[i], "_appp")){
+      ranfor_bar_data$var[i] <- "appp"
+    }else if(str_detect(ranfor_bar_data$mod_names[i], "_lpre")){
+      ranfor_bar_data$var[i] <- "lpre"
+    }else if(str_detect(ranfor_bar_data$mod_names[i], "_lpost")){
+      ranfor_bar_data$var[i] <- "lpost"
+    }else{
+      print("Hmm... something is off!")
+    }
+  }  
+  
+  #making plots
+  ranfor_archo_p <- ggplot(data = ranfor_bar_data[ranfor_bar_data$taxa == "archo", ], 
+                        aes(x = var, y = ranfort_mod_accu, fill = stan_groups)) + 
+    geom_bar(stat = "identity", position = "dodge") +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1), expand = c(0, 0), limits = c(0, 1)) +
+    scale_fill_manual(name = "Standardised variables", values = c("#FF4C00", "#041E42")) +
+    xlab("Model variables") +
+    ylab("Model accuracy (per)") +
+    theme_classic() +
+    theme(axis.line = element_line(colour = "black", linewidth = 0.5, linetype = "solid"), 
+          axis.text.y = element_text(size = 10),
+          axis.text.x = element_text(angle = 90, size = 10),
+          axis.title = element_text(size = 12))
+  
+  ranfor_bird_p <- ggplot(data = ranfor_bar_data[ranfor_bar_data$taxa == "bird", ], 
+                       aes(x = var, y = ranfort_mod_accu, fill = stan_groups)) + 
+    geom_bar(stat = "identity", position = "dodge") +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1), expand = c(0, 0), limits = c(0, 1)) +
+    scale_fill_manual(name = "Standardised variables", values = c("#FF4C00", "#041E42")) +
+    xlab("Model variables") +
+    ylab("Model accuracy (per)") +
+    theme_classic() +
+    theme(axis.line = element_line(colour = "black", linewidth = 0.5, linetype = "solid"), 
+          axis.text.y = element_text(size = 10),
+          axis.text.x = element_text(angle = 90, size = 10),
+          axis.title = element_text(size = 12))
+  
+  ranfor_croc_p <- ggplot(data = ranfor_bar_data[ranfor_bar_data$taxa == "croc", ], 
+                       aes(x = var, y = ranfort_mod_accu, fill = stan_groups)) + 
+    geom_bar(stat = "identity", position = "dodge") +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1), expand = c(0, 0), limits = c(0, 1)) +
+    scale_fill_manual(name = "Standardised variables", values = c("#FF4C00", "#041E42")) +
+    xlab("Model variables") +
+    ylab("Model accuracy (per)") +
+    theme_classic() +
+    theme(axis.line = element_line(colour = "black", linewidth = 0.5, linetype = "solid"), 
+          axis.text.y = element_text(size = 10),
+          axis.text.x = element_text(angle = 90, size = 10),
+          axis.title = element_text(size = 12))
+  
+  #arrange plots and export png
+  p <- ggarrange(lda_archo_p, lda_bird_p, lda_croc_p,
+                 logi_archo_p, logi_bird_p, logi_croc_p,
+                 bay_archo_p, bay_bird_p, bay_croc_p,
+                 ranfor_archo_p, ranfor_bird_p, ranfor_croc_p,
+                 ncol = 3, nrow = 4,
+                 labels = c("A", "B", "C",
+                            "D", "E", "F",
+                            "G", "H", "I",
+                            "J", "K", "L"), 
+                 common.legend = TRUE, legend = "bottom")
+  
+  ggsave(plot = p, dpi = 600, bg = "white", 
+         filename = "model_accuracy_bar.png", 
+         device = "png", width = 22, heigh = 28, units = "cm")
+  
+  
+# create scatter plot for the main article
+  #confusion matrices from majority rules
+  mjr_cm_list <- list(con_archo_f_matrix, con_archo_caw_matrix, con_archo_b_caw_matrix, con_b_caw_matrix, con_croc_caw_matrix)
+  names(mjr_cm_list) <- c("mjr_ar_f", "mjr_ar_caw", "mjr_ar_b_caw", "mjr_b_caw", "mjr_c_caw")
+  mjr_names <- names(mjr_cm_list)
+  
+  mod_names <- c(lda_bar_data$mod_names, logi_bar_data$mod_names, bay_bar_data$mod_names, ranfor_bar_data$mod_names, mjr_names)
+  stan_groups <- c(lda_bar_data$stan_groups, logi_bar_data$stan_groups, bay_bar_data$stan_groups, ranfor_bar_data$stan_groups,
+                   c("f_length", "caw", "caw", "caw", "caw"))
+  mjr_mod_accu <- c()
+  for (i in 1:length(mjr_cm_list)){
+    mjr_mod_accu[i] <- (mjr_cm_list[[i]][[3]][1])
+  }
+  
+  comb_accu <- c(lda_mod_accu, logi_mod_accu, bay_mod_accu, ranfort_mod_accu, mjr_mod_accu)
+  
+  # organise data for plotting
+  comb_point_data <- data.frame(
+    mod_names,
+    taxa = NA,
+    stan_groups,
+    var = NA,
+    comb_accu
+  )
+  
+  for(i in 1: length(comb_point_data$mod_names)){  
+    if(str_detect(comb_point_data$mod_names[i], "ar_")){
+      comb_point_data$taxa[i] <- "archo"
+    }else if(str_detect(comb_point_data$mod_names[i], "b_")){
+      comb_point_data$taxa[i] <- "bird"
+    }else if(str_detect(comb_point_data$mod_names[i], "c_")){
+      comb_point_data$taxa[i] <- "croc"
+    }else{
+      print("Hmm... something is off!")
+    }
+  }  
+  
+  for(i in 1: length(comb_point_data$mod_names)){  
+    if(str_detect(comb_point_data$mod_names[i], "_3var")){
+      comb_point_data$var[i] <- "3var"
+    }else if(str_detect(comb_point_data$mod_names[i], "_cl")){
+      comb_point_data$var[i] <- "cl"
+    }else if(str_detect(comb_point_data$mod_names[i], "_cah")){
+      comb_point_data$var[i] <- "cah"
+    }else if((str_detect(comb_point_data$mod_names[i], "_caw") & !str_detect(comb_point_data$mod_names[i], "_caw_"))){
+      comb_point_data$var[i] <- "caw"
+    }else if(str_detect(comb_point_data$mod_names[i], "_hp")){
+      comb_point_data$var[i] <- "hp"
+    }else if(str_detect(comb_point_data$mod_names[i], "_appp")){
+      comb_point_data$var[i] <- "appp"
+    }else if(str_detect(comb_point_data$mod_names[i], "_lpre")){
+      comb_point_data$var[i] <- "lpre"
+    }else if(str_detect(comb_point_data$mod_names[i], "_lpost")){
+      comb_point_data$var[i] <- "lpost"
+    }else{
+      print("Hmm... something is off!")
+    }
+  }  
+  
+  comb_point_data$var <- ifelse(str_detect(comb_point_data$mod_names, "mjr_"), "mjr", comb_point_data$var)
+
+#create a scatter plot
+  dodge <- position_dodge(width = 1)
+  comb_point_p <- ggplot(data = comb_point_data, 
+                          aes(x = var, y = comb_accu)) + 
+    geom_boxplot(aes(color = stan_groups), position = dodge, outlier.size = 1, coef = 1) +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1), expand = c(0, 0), limits = c(.15, NA)) +
+    scale_color_manual(name = "Standardised by", 
+                       values = c("#FF4C00", "#041E42"), 
+                       labels = c(expression(italic(caw)), expression(italic(f_length)))) +
+    xlab("Model variables") +
+    ylab("Model accuracy (per)") +
+    theme_classic() +
+    theme(axis.line = element_line(colour = "black", linewidth = 0.5, linetype = "solid"), 
+          axis.text.y = element_text(size = 10),
+          axis.text.x = element_text(face = "italic",size = 10, vjust = -0.1),
+          axis.title = element_text(size = 12))
+  
+  ggsave(plot = comb_point_p, dpi = 600, bg = "white", 
+         filename = "model_accuracy_box.png", 
+         device = "png", width = 22, heigh = 22, units = "cm")
+
+  
+  
+# export a table of accuracies for supplementary information
+  #creat the table
+  write.csv(comb_point_data, "D:/3_Code/R_projects/cervicodorsal_transition/cd_model_accuracy_table.csv", row.names = FALSE)

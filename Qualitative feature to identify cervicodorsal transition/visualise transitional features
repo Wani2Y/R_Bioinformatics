@@ -1,0 +1,52 @@
+# title: "**Generate plots for transitional features**"
+# project for: "Characterizing cervicodorsal transition qualitatively"
+# author: "Wani2Y"
+# first created: "28/7/2020"
+# last modified: "11/03/2023"
+
+#Load the necessary libraries
+library(tidyverse)
+library(ggplot2)
+library(reshape2)
+
+#Read in raw data
+cd_ql <- read.csv("quali_raw.csv", header = TRUE, na.strings = "A") %>% as_tibble
+
+#melt the data frame
+m_cd_ql <- melt(cd_ql, id = c("A_to_P", "taxa", "p_num", "pgroup"), na.rm = FALSE)
+names(m_cd_ql)[names(m_cd_ql) == 'value'] <- 'States'
+m_cd_ql$States <- as.factor(m_cd_ql$States)
+m_cd_ql <- filter(m_cd_ql, 
+                  variable == "pm"|variable == "do"|variable == "fc"|variable == "hy"|variable == "p_shape"|variable == "ns"|variable == "ns_ori"|variable == "epi")
+
+#obtain the unique list of taxa names
+archo_taxa <- unique(m_cd_ql$taxa)
+#create an empty list to store the plots
+cdplot <- list()
+shp_4 <- c("0" = 15, "1" = 16,"2" = 18, "NA" = 13)
+mcol_4 <- c("0" = "#0072b2", "1" = "#d55e00", "2" = "#cc79a7", "NA" = "#808080")
+shp_5 <- c("0" = 15, "1" = 16,"2" = 18, "3" = 17, "NA" = 13)
+mcol_5 <- c("0" = "#0072b2", "1" = "#d55e00", "2" = "#cc79a7", "3" = "#994F00", "NA" = "#808080")
+
+#create a for loop to loop through the unique taxa
+for (i in archo_taxa){
+  #plot and customize individual figure
+  a <- m_cd_ql %>% filter(taxa == i)
+  if(any(a$States == "3")){
+      cdplot[[i]] <- ggplot(data = a, aes(x = A_to_P, y = variable, color = States)) +
+      geom_point(aes(shape = States), size = 5) + 
+      scale_shape_manual(values = shp_5) +
+      scale_color_manual(values = mcol_5) +
+      labs(x = "Anteroposterior order", y = "transitional features") +
+      theme_classic()
+    ggsave(cdplot[[i]], dpi = 600, file = paste0(i,".png"))
+  } else{
+      cdplot[[i]] <- ggplot(data = a, aes(x = A_to_P, y = variable, color = States)) +
+      geom_point(aes(shape = States), size = 5) + 
+      scale_shape_manual(values = shp_4) +
+      scale_color_manual(values = mcol_4) +
+      labs(x = "Anteroposterior order", y = "transitional features") +
+      theme_classic()
+      ggsave(cdplot[[i]], dpi = 600, file = paste0(i,".png"))
+  }
+}
