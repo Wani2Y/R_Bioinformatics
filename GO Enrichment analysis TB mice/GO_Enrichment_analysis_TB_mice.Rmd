@@ -335,7 +335,7 @@ for (ID in cell_sample$cell_series){
 }
 ```
 
-```{r load microarray data}
+```{r load microarray data, results='hide'}
 # using ReadAffy() from the affy package would be more concise but it is not applicable for binary cell format of the source article...
 # list and unzip .CEL.gz files
 cell_fp <- "gene_data/"
@@ -379,16 +379,33 @@ box_data_long <- melt(box_data,
                       variable.name = "Sample", 
                       value.name = "Intensity")
 
-# show them in boxplot and see if any major issues from normalisation.
-p_box <- ggplot(box_data_long, aes(x = Sample,
-                          y = Intensity)) +
+# split the samples into subsets for plotting.
+n <- 10  
+data_chunk <- split(unique(box_data_long$Sample), 
+                       ceiling(seq_along(unique(box_data_long$Sample)) / n))
+
+# plotly container.
+plot_list <- list()
+
+# make plotly objects for all samples by data_chunk.
+for (i in seq_along(data_chunk)) {
+  subset_data <- box_data_long[box_data_long$Sample %in% data_chunk[[i]], ]
+  
+  p_box <- ggplot(subset_data, aes(x = Sample,
+                                   y = Intensity)) +
     geom_boxplot(notch = TRUE) +
     theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-    labs(title = "Expression Values by Sample", 
+    labs(title = paste("Expression Values by Sample - Set", i),
          x = "Sample", 
          y = "Expression Intensity")
+  
+  plot_list[[i]] <- ggplotly(p_box)
+}
 
-ggplotly(p_box)
+# show them in boxplot and see if any major issues from normalisation.
+for (p in plot_list) {
+  print(p)
+}
 ```
 
 # Differential Expressed Gene Analysis (DEGA)
@@ -550,9 +567,9 @@ nrow(GPL16570)
 nrow(GPL16570_lung)
 ```
 
-## Create four sets of Gene Ontology (GO) terms
-### Cleaning the gene and GO data
-```{r define three parse functions}
+## Create four sets of Gene Ontology (GO) terms and Protein Domain (PD)
+### Cleaning the gene, GO, and PD data
+```{r define parsing functions}
 # gene id and titles are stored in the gene_assignment column in GPL16570_lung. 
 # make a function to grab the second and third items from gene_assignment.
 parseGI <- function(gene_assignment){
@@ -574,7 +591,7 @@ parsGO <- function(probe, ontology = "GO_biological_process"){
 
   # in case of probe without id (a.k.a. errors in data wrangling)
   if (length(go_id) > 0){
-    go_tab <- cbind(
+    go_tab <- cbind(Probe_id = probe,
                     Id = go_id,
                     Description = go_description,
                     Source = go_source)
@@ -599,14 +616,64 @@ prepGO <- function(degs){
     GO <- rbind(GO, parsGO(probe))}
   
   # drop the rows with only na.
-  GO <- GO[rowSums(is.na(GO)) != ncol(GO), ]
+  GO <- as.data.frame(GO[rowSums(is.na(GO)) != ncol(GO), ])
+  GO <- na.omit(GO)
   
   # match AGO and GO, as DEGs without GO term is of little significant to our purpose.
-  AGO <- AGO[which(rownames(AGO) %in% rownames(GO)), ]
+  AGO <- AGO[which(AGO$Probe_id %in% GO$Probe_id), ]
   
   # combine the result into a list for subsequent enrichment analysis.
   result <- list(AGO, GO)
   names(result) <- c("AGO", "GO")
+  
+  return(result)
+}
+
+# parsing protein domain data, as the custom cdf environment in the original study uses protein domain data.
+parsPD <- function(probe, protein_domain = "protein_domains"){
+  pd_segment <- strsplit(GPL16570_lung[probe, "protein_domains"], "///")[[1]]
+  entrez_id <- trimws(unlist(lapply(pd_segment, function(x) strsplit(x, "//")[[1]][1])))
+  inter_pro_id <- trimws(unlist(lapply(pd_segment, function(x) strsplit(x, "//")[[1]][3])))
+  protein_segment <- trimws(unlist(lapply(pd_segment, function(x) strsplit(x, "//")[[1]][4])))
+  protein <- trimws(unlist(lapply(protein_segment, function(x) strsplit(x, "/")[1])))
+  
+  # in case of probe without id (a.k.a. errors in data wrangling)
+  if (length(entrez_id) > 0){
+    pd_tab <- data.frame(
+      Probe_id = rep(probe, length(protein)),
+      entrez_id = rep(entrez_id, length(protein)),
+      inter_pro_id = rep(inter_pro_id, length(protein)),
+      protein = protein)
+    #rownames(pd_tab) <- rep(probe, nrow(pd_tab))
+    return(pd_tab)
+    return() # return nothing if pd_family is empty/NA
+  }
+}
+
+# arrange the APD and PD data
+prepPD <- function(degs){
+  # match information between Array PD terms from DEG result and GPL16750_lung.
+  APD <- cbind(Gene_Symbol = GPL16570_lung[rownames(degs), c("probeset_id", "Gene_id", "Gene_title")],
+               degs[, c("logFC", "P.Value", "adj.P.Val")])
+  colnames(APD) <- c("Probe_id", "Gene_id", "Gene_title", "logFC", "P.Val", "adj.P.Val")
+  
+  # parse all PD terms on protein domain column from GPL16570. 
+  PD <- c()
+  
+  for (probe in rownames(APD)){
+    PD <- rbind(PD, parsPD(probe))}
+  
+  # drop the rows with only na.
+  PD <- as.data.frame(PD[rowSums(is.na(PD)) != ncol(PD), ])
+  PD <- na.omit(PD)
+  
+  # match APD and PD, as DEGs without PD term is of little significant to our purpose.
+  APD <- APD[which(APD$Probe_id %in% PD$Probe_id), ]
+  APD <-na.omit(APD)
+  
+  # combine the result into a list for subsequent enrichment analysis.
+  result <- list(APD, PD)
+  names(result) <- c("APD", "PD")
   
   return(result)
 }
@@ -641,11 +708,72 @@ GPL16570_lung <- GPL16570_lung %>%
                        `=---='
 
      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-     
+
+
+
+#### All Four Groups
+```{r parsing gene and GO terms}
+# can not use prepPD and prepGO due to inconsistent column names. We could rename columns but it may cause issues if not careful.
+degs <- probe_results_all
+
+# parse the PD terms.
+# match information between Array PD terms from DEG result and GPL16750_lung.
+APD <- cbind(Gene_Symbol = GPL16570_lung[rownames(degs), c("probeset_id", "Gene_id", "Gene_title")],
+               degs[, c("F", "P.Value", "adj.P.Val")])
+colnames(APD) <- c("Probe_id", "Gene_id", "Gene_title", "F", "P.Val", "adj.P.Val")
+
+# parse all PD terms on protein domain column from GPL16570. 
+PD <- c()
+
+for (probe in rownames(APD)){
+    PD <- rbind(PD, parsPD(probe))}
+
+# drop the rows with only na.
+PD <- as.data.frame(PD[rowSums(is.na(PD)) != ncol(PD), ])
+PD <-na.omit(PD)
+
+# match APD and PD, as DEGs without PD term is of little significant to our purpose.
+APD <- APD[which(APD$Probe_id %in% PD$Probe_id), ]
+APD <-na.omit(APD)
+
+Genepd_four <- list(APD, PD)
+names(Genepd_four) <- c("APD", "PD")
+
+# parse the GO terms.
+# match information between Array GO terms from DEG result and GPL16750_lung.
+AGO <- cbind(Gene_Symbol = GPL16570_lung[rownames(degs), c("probeset_id", "Gene_id", "Gene_title")],
+             degs[, c("F", "P.Value", "adj.P.Val")])
+colnames(AGO) <- c("Probe_id", "Gene_id", "Gene_title", "F", "P.Val", "adj.P.Val")
+AGO <- na.omit(AGO)
+
+# parse all GO terms on Biological Process column from GPL16570. 
+GO <- c()
+  
+for (probe in rownames(AGO)){
+  GO <- rbind(GO, parsGO(probe))}
+  
+# drop the rows with only na.
+GO <- as.data.frame(GO[rowSums(is.na(GO)) != ncol(GO), ])
+GO <- na.omit(GO)
+  
+# match AGO and GO, as DEGs without GO term is of little significant to our purpose.
+AGO <- AGO[which(AGO$Probe_id %in% GO$Probe_id), ]
+  
+# combine the result into a list for subsequent enrichment analysis.
+Genego_four <- list(AGO, GO)
+names(Genego_four) <- c("AGO", "GO")
+```
+
 #### Uninfected vs Aymptomatic Controller
 ```{r parsing gene and GO terms}
 # specify the result from the correct group of deg.
 degs <- deg_ui_ac$deg_results
+
+# parse gene IDs and PD terms.
+Genepd_ui_ac <- prepPD(degs)
+head(Genepd_ui_ac$APD)
+head(Genepd_ui_ac$PD)
+
 # parse gene IDs and GO terms.
 Genego_ui_ac <- prepGO(degs)
 head(Genego_ui_ac$AGO)
@@ -656,6 +784,12 @@ head(Genego_ui_ac$GO)
 ```{r parsing gene and GO terms}
 # specify the result from the correct group of deg.
 degs <- deg_ui_cc$deg_results
+
+# parse gene IDs and PD terms.
+Genepd_ui_cc <- prepPD(degs)
+head(Genepd_ui_cc$APD)
+head(Genepd_ui_cc$PD)
+
 # parse gene IDs and GO terms.
 Genego_ui_cc <- prepGO(degs)
 head(Genego_ui_cc$AGO)
@@ -666,6 +800,11 @@ head(Genego_ui_cc$GO)
 ```{r parsing gene and GO terms}
 # specify the result from the correct group of deg.
 degs <- deg_ui_pr$deg_results
+# parse gene IDs and PD terms.
+Genepd_ui_pr <- prepPD(degs)
+head(Genepd_ui_pr$APD)
+head(Genepd_ui_pr$PD)
+
 # parse gene IDs and GO terms.
 Genego_ui_pr <- prepGO(degs)
 head(Genego_ui_pr$AGO)
@@ -676,6 +815,11 @@ head(Genego_ui_pr$GO)
 ```{r parsing gene and GO terms}
 # specify the result from the correct group of deg.
 degs <- deg_ac_cc$deg_results
+# parse gene IDs and PD terms.
+Genepd_ac_cc <- prepPD(degs)
+head(Genepd_ac_cc$APD)
+head(Genepd_ac_cc$PD)
+
 # parse gene IDs and GO terms.
 Genego_ac_cc <- prepGO(degs)
 head(Genego_ac_cc$AGO)
@@ -686,6 +830,11 @@ head(Genego_ac_cc$GO)
 ```{r parsing gene and GO terms}
 # specify the result from the correct group of deg.
 degs <- deg_ac_pr$deg_results
+# parse gene IDs and PD terms.
+Genepd_ac_pr <- prepPD(degs)
+head(Genepd_ac_pr$APD)
+head(Genepd_ac_pr$PD)
+
 # parse gene IDs and GO terms.
 Genego_ac_pr <- prepGO(degs)
 head(Genego_ac_pr$AGO)
@@ -696,6 +845,11 @@ head(Genego_ac_pr$GO)
 ```{r parsing gene and GO terms}
 # specify the result from the correct group of deg.
 degs <- deg_cc_pr$deg_results
+# parse gene IDs and PD terms.
+Genepd_cc_pr <- prepPD(degs)
+head(Genepd_cc_pr$APD)
+head(Genepd_cc_pr$PD)
+
 # parse gene IDs and GO terms.
 Genego_cc_pr <- prepGO(degs)
 head(Genego_cc_pr$AGO)
@@ -703,7 +857,266 @@ head(Genego_cc_pr$GO)
 ```
 
 ## Perform the enrichment/overrespresentation analysis
-### Fast analysis using genes and GO terms on org.Mm.eg.db (not recommended)
+### Anlysis on protein domain (attemp to recreate the result of the original study)
+#### Across four groups
+```{r}
+# get data from deg results and from annotation data
+deg <- Genepd_four$APD
+annotation <- Genepd_four$PD
+
+# combine deg and annotation based on Probe_id
+deg_merge <- merge(deg, annotation, by = "Probe_id")
+deg_merge <- deg_merge %>%
+  select(Probe_id, entrez_id, protein)
+
+# create a dataframe fo map gene and protein family
+gene_to_pd <- data.frame(
+  protein = deg_merge$protein,
+  entrez_id = deg_merge$entrez_id)
+gene_to_pd <- gene_to_pd[!duplicated(gene_to_pd), ]
+
+# create background count
+bg_gene <- unique(deg_merge$Gene_id)
+
+# perform enrichment analysis.
+EA_PD_four <- enricher(gene = deg$Gene_id, 
+                       pvalueCutoff = 0.05,
+                       pAdjustMethod = "BH",
+                       TERM2GENE = gene_to_pd, 
+                       universe = bg_gene,
+                       minGSSize = 1,
+                       maxGSSize = 500)
+# view the result as table
+head(EA_PD_four)
+```
+
+##### Uninfected vs Aymptomatic Controller
+```{r define a function for manual computation}
+# you can also use enricher() from the clusterProfiler above. 
+# We can also use the hypergeometric test to manually compute for significant protein domains.
+EAPDCompute <- function(apd, pd){
+  # assign the arguments.
+  APD <-  apd
+  PDdata <- pd
+  
+  # check the minimal adj.P.Val.
+  if (min(APD$adj.P.Val) < 0.05){
+    # perform the EA computation.
+    # compute for foreground
+    fg_probe <- rownames(APD)[which(APD[, "adj.P.Val"] < 0.05)]
+    fg_pd_id <- PDdata$Probe_id[PDdata$Probe_id %in% fg_probe]
+    
+    # compute for background
+    bg_probe <- rownames(APD)
+    bg_pd_id <- PDdata$Probe_id[PDdata$Probe_id %in% bg_probe]
+    
+    # Initialize an empty matrix to store the results
+    EA <- data.frame()
+    
+    # counting for each protein term as if they were GO terms
+    for (Id in unique(fg_pd_id)) {
+      # tocal count in background with PD term
+      m <- sum(bg_pd_id == Id) 
+      
+      # total count in background without PD term
+      n <- length(bg_pd_id) - m 
+      
+      # total count in foreground
+      q <- length(fg_pd_id)
+      
+      # total count in foreground with PD term
+      x <- sum(fg_pd_id == Id)
+      
+      # compute the hypergeometric p-value
+      p_val <- phyper(x - 1, m, n, q, lower.tail = FALSE)
+      
+      # combine the result for all probes
+      EA <- rbind(EA, c(m, m + n, q, x, p_val))
+    }
+    
+    rownames(EA) <- unique(fg_pd_id)
+    colnames(EA) <- c("m", "o(m + n)", "q", "x", "P.Val.hygeo")
+    
+    if(nrow(EA) > 0 && any(!is.na(EA[, "x"]))){
+      # adjust the P.Val.hygeo for multiple testing across the entire array of probes. 
+      # Finding true positive is more important to me in this analysis, but use one of the other adjusting methods as needed.
+      EA <- cbind(EA, "adj.P.Val.hygeo" = p.adjust(EA[, "P.Val.hygeo"], "BH"))
+      
+      # filter again for only the significant results by adj.P.Val.hygeo. We use 0.05 as the alpha level as 0.05 captures only one GO term...
+      PDsig <- rownames(EA)[which(EA[, "adj.P.Val.hygeo"] < 0.05)]
+      
+      # grab and add GO data.
+      PDname <- c()
+      
+      for (pd in PDsig) {
+        pd_des <- unique(PDdata[which(PDdata[, "Probe_id"] == pd), "protein"])
+        
+        # if no pd_des is found, append NA 
+        if (length(pd_des) == 0) {
+          PDname <- c(PDname, NA)
+          unmatched_count <- unmatched_count + 1
+        } else {
+          # append the first pd_des if duplicates are found
+          PDname <- c(PDname, pd_des[1])
+        }
+      }
+      
+      EA <- cbind(Description = PDname, EA[PDsig, , drop = FALSE]) # ensure dataframe structure not changed.
+      
+      # we can format the enrichment analysis output as observed and expected, which may be easier to interpret.
+      # recall that we want to compare the foreground and background ratios. DEG with the selected protein domain count.
+      # foreground ratio.
+      Ratio_fg <- as.numeric(EA[, "x"])/as.numeric(EA[, "q"])
+      
+      # background ratio.
+      Ratio_bg <- as.numeric(EA[, "m"])/as.numeric(EA[, "o(m + n)"])
+      
+      # expected value of foreground based on the background ratio.
+      Ratio_mu_bg <- round(Ratio_bg * as.numeric(EA[, "q"]), 5)
+      
+      # create a dataframe as a readable result.
+      EA <- data.frame(cbind(`Probe_id` = rownames(EA),
+                             Description = EA[, "Description"],
+                             `Expected Frequency` = paste0(Ratio_mu_bg, "/", EA[, "q"]),
+                             `Observed Frequency` = paste0(EA[, "m"], "/", EA[, "q"]),
+                             `Background Ratio` = paste0(EA[, "m"], "/", EA[, "o(m + n)"]),
+                             `FoldChange` = round(Ratio_fg/Ratio_bg, 5), # of protein domain.
+                             `P.Val` = as.numeric(EA[, "P.Val.hygeo"]),
+                             `P.Val.adjusted` = as.numeric(EA[, "adj.P.Val.hygeo"])))
+      
+      # add gene information
+      join_apd <- APD
+      join_apd$Probe_id <- as.character(join_apd$Probe_id)
+      
+      EA_join <- EA %>%
+        left_join(join_apd, by = "Probe_id")
+      
+      # remove duplicates and unnecessary columns
+      EA_join <- select(EA_join, c("Probe_id", "Gene_id", "logFC", "Description", "P.Val.x", "P.Val.adjusted", 
+                                   "Expected.Frequency", "Observed.Frequency", "Background.Ratio"))
+      
+      colnames(EA_join) <- c("Probe_id", "Gene_id", "logFC", "Description", "P.Val", "P.Val.adjusted", 
+                             "Expected.Frequency", "Observed.Frequency", "Background.Ratio")
+      
+      EA_join <- unique(EA_join)
+      # remove duplicate for a clean output table.
+      tempt <- EA %>%
+        select(c("Probe_id", "Description", "Expected.Frequency", "Observed.Frequency", 
+                 "Background.Ratio", "FoldChange", "P.Val", "P.Val.adjusted"))
+      
+      join_list <- EA_join %>%
+        select(c("Probe_id", "Gene_id"))
+      
+      tempt <- tempt %>%
+        left_join(join_list, by = "Probe_id") 
+      
+      tempt <- tempt %>%
+        group_by(Description) %>%
+        dplyr::reframe(
+          Gene.id = paste(Gene_id, collapse = "/"))
+      
+      EA_tab <- tempt %>%
+        left_join(EA, by = "Description")
+      
+      EA_tab <- EA_tab %>%
+        select("Probe_id", "Description", "Gene.id", "Expected.Frequency", "Observed.Frequency",
+               "Background.Ratio", "FoldChange", "P.Val", "P.Val.adjusted")
+      
+      Protein_tab <- unique(EA_tab[, c("Description", "Gene.id", "P.Val.adjusted")])
+      Top_protein <- Protein_tab %>%
+        arrange(P.Val.adjusted) %>%
+        slice_head(n = 5)
+      
+      result <- list(EA_tab, Top_protein)
+      names(result) <- c("EA_tab", "Top_protein")
+      return(result)
+    }else print("Not enougn significant GO terms for computation. Increased sample size is required.")
+  }else print("GO terms from contrast groups are not significant enough for computation. Set a larger alpha level to proceed.")
+}
+```
+
+```{r perform the enrichment analysis}
+EAPD_ui_ac <- EACompute(Genepd_ui_ac$APD, Genepd_ui_ac$PD)
+head(EAPD_ui_ac$EA_tab)
+head(EAPD_ui_ac$Top_protein)
+# save the result as a csv file if needed.
+# write.csv(as.data.frame(EAPD_ui_ac$EA_tab), "EAPD_Fin_ui_ac.csv", row.names = FALSE)
+
+
+```
+
+##### Uninfected vs Chronic Controller
+```{r perform the enrichment analysis}
+
+```
+
+##### Uninfected vs Progressor
+```{r perform the enrichment analysis}
+
+```
+
+##### Aymptomatic Controller vs Chronic Controller
+```{r perform the enrichment analysis}
+
+```
+
+##### Aymptomatic Controller vs Progressor
+```{r perform the enrichment analysis}
+
+```
+
+##### Chronic Controller vs Progressor
+```{r perform the enrichment analysis}
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### Analysis on biological process
+#### Fast analysis using genes and GO terms on org.Mm.eg.db
 |               With a list of gene id and the logFC between two groups, we can perform an enrichment analysis based on org.Mm.eg.db. This block use Aymptomatic Controller and Progressor groups as an example. However, we should be cautious about two things when using this approach: (1) gene id from GEO may not have a match on org.Mm.eg.db; (2) org.Mm.eg.db contains all genes while the source article samples only lung tissues. Therefore, we may find signals of enrichment/overrepresentation not due to TB infections, but because we sample lung tissues!
 
 ```{r enrichment using clusterProfiler}
@@ -739,23 +1152,19 @@ orgdb_table <- as.data.frame(orgdb_result[orgdb_result$p.adjust < 0.05])
 head(orgdb_table)
 ```
 
-```{r clusterProfiler visualisation, fig.width=8, fig.height=6}
+```{r clusterProfiler visualisation}
 # clusterProfiler has many cool ways to visualise the enrichment analysis results, but the results generally would need to be in specific Class object like enrichResult.
 # upsetplot
 upset <- upsetplot(orgdb_result, n = 5) 
 upset
 
-# cnetplot
-p_cnet <- cnetplot(orgdb_result, foldChange = gene_list)
-p_cnet
-
 # network plot
-p_ema <- emapplot(pairwise_termsim(orgdb_result), showCategory = 5, color = "p.adjust", layout.params = list(layout = "nicely"), edge.params = list(min = 1), pie = "Count") 
+p_ema <- emapplot(pairwise_termsim(orgdb_result), showCategory = 10, color = "p.adjust", layout.params = list(layout = "nicely"), edge.params = list(min = 0), pie = "Count") 
 p_ema
 ```
 
-### Manual computation for enrichment analysis
-|               At this point, we have both the AGO from the DEG analysis among the various pairs of contrast groups and the GO data from platform on GEO. Instead of using clusterProfiler, we can manually perform the enrichment/overrepresentation analysis. The theoretical section at the beginning require computation of the the number of probes $\textbf{o}$, the background count $\textbf{m}$, the foreground count $\textbf{q}$, the DEGs of selected GO term $\textbf{x}$, and the number of probes without GO terms $\textbf{n}$. An alpha level of 0.05 is chosen. A different alpha level can be chosen based on the tolerance for Type I and II errors.
+#### Manual computation for enrichment analysis
+|               At this point, we have both the AGO from the DEG analysis among the various pairs of contrast groups and the GO data from platform on GEO. Instead of using clusterProfiler, we can manually perform the enrichment/overrepresentation analysis. The theoretical section at the beginning requires computation of the background count $\textbf{m}$, the foreground count $\textbf{q}$, the DEGs of selected GO term $\textbf{x}$, and the number of probes without GO terms $\textbf{n}$. An alpha level of 0.05 is chosen. A different alpha level can be chosen based on the tolerance for Type I and II errors.
 
 ```{r define an EA function to perform the computation}
 EACompute <- function(ago, go){
@@ -768,32 +1177,38 @@ EACompute <- function(ago, go){
     # perform the EA computation.
     # compute for foreground.
     fg_probe <- rownames(AGO)[which(AGO[, "adj.P.Val"] < 0.05)]
-    fg_go_id <- GOdata[fg_probe, "Id"]
+    fg_go_id <- GOdata$Probe_id[GOdata$Probe_id %in% fg_probe]
     
     # compute for background.
     bg_probe <- rownames(AGO)
-    bg_go_id <- GOdata[bg_probe, "Id"]
+    bg_go_id <- GOdata$Probe_id[GOdata$Probe_id %in% bg_probe]
     
     # compute for the counts for relevant terms form the theoretical section for each gene ontology.
-    EA <- c() # enrichment analysis
+    EA <- data.frame() # enrichment analysis
     
     # counting for each GO term.
     for (Id in unique(fg_go_id)){
-      m <- length(unique(names(bg_go_id)[which(bg_go_id == Id)])) # get the count of probe names for each go
-      n <- length(unique(names(bg_go_id))) - m # probes in the background lacking go
-      q <- length(unique(names(fg_go_id)))
-      x <- length(unique(names(fg_go_id)[which(fg_go_id == Id)]))
-      p_val <- phyper(x - 1, m, n, q, lower.tail = FALSE) # x - 1 accounts for the discrete nature of the PMF when flipping 
+      # total count in background with GO term
+      m <- sum(bg_go_id == Id) 
+      # total count in background without GO term
+      n <- length(bg_go_id) - m 
+      # total count in foreground
+      q <- length(fg_go_id)
+      # total count in foreground with GO term
+      x <- sum(fg_go_id == Id)
+      # compute the hypergeometric p-value
+      p_val <- phyper(x - 1, m, n, q, lower.tail = FALSE)
+      # combine the result for all probes
       EA <- rbind(EA, c(m, m + n, q, x, p_val))
     }
     rownames(EA) = unique(fg_go_id)
     colnames(EA) = c("m", "o(m + n)", "q", "x", "P.Val.hygeo")
     
-    if(EA[, "x"]> 0){
+    if(nrow(EA) > 0 && any(!is.na(EA[, "x"]))){
       # adjust the P.Val.hygeo for multiple testing across the entire array of probes. Finding true positive is more important to me in this analysis, but use one of the other adjusting methods as needed.
       EA <- cbind(EA, "adj.P.Val.hygeo" = p.adjust(EA[, "P.Val.hygeo"], "BH"))
       
-      # filter again for only the significant results by adj.P.Val.hygeo. We use 0.05 here again as oup alpha level.
+      # filter again for only the significant results by adj.P.Val.hygeo. We use 0.05 as the alpha level as 0.05 captures only one GO term...
       GOsig <- rownames(EA)[which(EA[, "adj.P.Val.hygeo"] < 0.05)]
       
       # grab and add GO data.
@@ -803,7 +1218,7 @@ EACompute <- function(ago, go){
         GOname <- c(GOname,
                     unique(GOdata[which(GOdata[, "Id"] == go), "Description"]))}
       
-      EA <- cbind(Description = GOname, EA[GOsig, ])
+      EA <- cbind(Description = GOname, EA[GOsig, , drop = FALSE]) # ensure dataframe structure not changed.
       
       # we can format the enrichment analysis output as observed and expected, which may be easier to interpret.
       # recall that we want to compare the foreground and background ratios. DEG with the selected gene ontology/foreground count.
@@ -937,7 +1352,7 @@ EACompute <- function(ago, go){
 }
 ```
 
-#### Uninfected vs Aymptomatic Controller
+##### Uninfected vs Aymptomatic Controller
 ```{r perform the enrichment analysis}
 EA_ui_ac <- EACompute(Genego_ui_ac$AGO, Genego_ui_ac$GO)
 head(EA_ui_ac$EA_tab)
@@ -946,34 +1361,34 @@ head(EA_ui_ac$EA_tab)
 # write.csv(as.data.frame(EA_ui_ac$EA_tab), "EA_Fin_ui_ac.csv", row.names = FALSE)
 ```
 
-#### Uninfected vs Chronic Controller
+##### Uninfected vs Chronic Controller
 ```{r perform the enrichment analysis}
 EA_ui_cc <- EACompute(Genego_ui_cc$AGO, Genego_ui_cc$GO)
 head(EA_ui_cc$EA_tab)
 ```
 
-#### Uninfected vs Progressor
+##### Uninfected vs Progressor
 ```{r perform the enrichment analysis}
 EA_ui_pr <- EACompute(Genego_ui_pr$AGO, Genego_ui_pr$GO)
 head(EA_ui_pr$EA_tab)
 ```
 
-#### Aymptomatic Controller vs Chronic Controller
+##### Aymptomatic Controller vs Chronic Controller
 ```{r perform the enrichment analysis}
 EA_ac_cc <- EACompute(Genego_ac_cc$AGO, Genego_ac_cc$GO)
 head(EA_ac_cc$EA_tab)
 ```
 
-#### Aymptomatic Controller vs Progressor
+##### Aymptomatic Controller vs Progressor
 ```{r perform the enrichment analysis}
 EA_ac_pr <- EACompute(Genego_ac_pr$AGO, Genego_ac_pr$GO)
 head(EA_ac_pr$EA_tab)
 ```
 
-#### Chronic Controller vs Progressor
+##### Chronic Controller vs Progressor
 ```{r perform the enrichment analysis}
 EA_cc_pr <- EACompute(Genego_cc_pr$AGO, Genego_cc_pr$GO)
 head(EA_cc_pr$EA_tab)
 ```
 
-Voilà! Now we have the differentially expressed probes with their gene ontology from our microarray! 
+Voilà! Now we have the differentially expressed probes with their protein domains and gene ontology from our microarray! 
