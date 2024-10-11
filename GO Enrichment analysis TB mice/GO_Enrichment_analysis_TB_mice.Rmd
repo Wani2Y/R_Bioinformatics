@@ -24,18 +24,19 @@ knitr::opts_chunk$set(
 	collapse = TRUE,
 	out.width = "100%",
 	results = "hold",
-	tidy.opts=list(width.cutoff = 112),
+	tidy.opts=list(width.cutoff = 115),
 	tidy = TRUE
 )
 ```
 
 # Disclaimer
-|               This notebook is designed to explore the molecular data published at DOI: 10.1128/iai.00263-23; This notebook is free to use; you can redistribute it and/or modify it under the terms of the GNU General Public License,version 3, as published by the Free Software Foundation. This notebook is distributed in the hope that it will serve educational and entertainment purposes, but without any warranty; without even the implied warranty of merchantability or fitness for a particular purpose. Use of this code may be subjected to licensing agreement and copyright requirement of the Journal, Infection and Immunity.
-|               For more details of the license, please refer to: www.gnu.org/licenses/gpl-3.0.en.html.
+|               This notebook is designed to explore the molecular data published at DOI: 10.1128/iai.00263-23; This notebook is free to use under the terms of the MIT license on GitHub; you can redistribute it and/or modify it under the terms of the GNU General Public License, version 3, as published by the Free Software Foundation. This notebook is distributed in the hope that it will serve educational and entertainment purposes, but without any warranty; without even the implied warranty of merchantability or fitness for a particular purpose. Use of this code may be subjected to the licensing agreement and copyright requirement of the ASM Journal, Infection and Immunity, where the raw data is published.
+|               For more detail of the GNU license, please refer to: www.gnu.org/licenses/gpl-3.0.en.html; for more detail of the GitHub MIT license, please refer to: https://opensource.org/license/mit; for more detail of the Creative Comment CC-BY 4.0, please refer to: https://creativecommons.org/licenses/by/4.0/; for more detail of ASM journal licensing agreements, please refer to (1) license in use section and (2) author warranty and provosional license to publish section at: https://journals.asm.org/licensing-copyright.
 
 # Environment setup
 ```{r install the required packages}
 # uncomment the following lines of this chunk if you have not installed all required packages. Modify the code if you already have some of the packages.
+
 #if (!requireNamespace("BiocManager", quietly = TRUE))
 #  install.packages("BiocManager")
 
@@ -43,11 +44,11 @@ knitr::opts_chunk$set(
 ```
 
 # Data source
-|               Article citation: Koyuncu D, Tavolara T, Gatti DM, Gower AC et al. B cells in perivascular and peribronchiolar granuloma-associated lymphoid tissue and B-cell signatures identify asymptomatic Mycobacterium tuberculosis lung infection in Diversity Outbred mice. Infect Immun 2024 Jul 11;92(7):e0026323. PMID: 38899881.
-|               Raw expression microarray data is imported from Gene Expression Omnibus (GEO): https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE266564. Gene Ontology (GO) data is obtained from the associated platform, namely GPL16570, and the R package, org.Mm.eg.db.
+|               Article citation: Koyuncu D, Tavolara T, Gatti DM, Gower AC et al. B cells in perivascular and peribronchiolar granuloma-associated lymphoid tissue and B-cell signatures identify asymptomatic $\tkxtlf{Mycobacterium tuberculosis}$ lung infection in Diversity Outbred mice. Infect Immun 2024 Jul 11;92(7):e0026323. PMID: 38899881.
+|               Raw expression microarray data is imported from Gene Expression Omnibus (GEO): https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE266564. Gene Ontology (GO) data is obtained from the associated platform, namely GPL16570, and the R package, org.Mm.eg.db. GPL32068 is the annotation platform published in the source study, and GPL16570 is described as identical to GPL32068, except that a custom CDF environment was used to extract data [Brainarray Version 24, mogene20st_Mm_ENTREZG]. Annotation on GPL1650 is used in this study because it has more comprehensive data (e.g., both protein domain and biological processes) and the table structure is closer to the standard used on GEO.
 
 # Context
-|               The source article experimented on lung samples of Diversity Outbred mice infected by $\textit{Mycobacterium tuberculosis}$ (TB) over maximally 60 days. Three states of infections were identified into groups, namely not infected, asymptomatic controller, chronic controller, and progressor groups with definitions as follows: (1) uninfected mice were not experimentally infected by TB; (2) asymptomatic mice were experimentally infected but lacked diagnosible symptom, which were euthanised at predetermined date at of before 60 days post-infection; (3) chronically infected mice with symptoms of TB, which morbidly succumbed to TB and were euthanized after 60 days post-infection; (4) progressively infected mice with with symptoms of TB, which morbidly succumbed to TB and were euthanized before 60 days post-infection.
+|               The source article experimented on lung samples of Diversity Outbred mice infected by $\textit{Mycobacterium tuberculosis}$ (TB) over maximally 60 days. Three states of infections were identified and classified into groups, namely not infected, asymptomatic controller, chronic controller, and progressor groups with definitions as follows: (1) uninfected mice were not experimentally infected by TB; (2) asymptomatic mice were experimentally infected but lacked diagnosible symptom, which were euthanised at predetermined date at of before 60 days post-infection; (3) chronically infected mice with symptoms of TB, which succumbed to TB and were euthanized after 60 days post-infection; (4) progressively infected mice with with symptoms of TB, which morbidly succumbed to TB and were euthanized before 60 days post-infection.
 |               B-cell pathways and CD20+ B cells were found to be enrich/overrepresented in asymptomatic controller group. This report aims to perform an enrichment/overrepresentation analysis to see whether the same conclusion can be reached. In addition, genes related to the following Gene Ontology are found to be enriched/overrepresented in chronic controller and progressor groups: (1) Antigen receptor-mediated, (2) signaling pathway, (3) B-cell receptor signaling pathway, (4) T-cell activation, and (5) Regulation of lymphocyte activation.
 |               From the published data on GEO, the microarray data is constituted of the superseries GSE 266564, which is subdivided into two subseries: GSE 266562 and 266563. Here, we treat the entire 134 samples in the superseries as a single dataset for analysis.
 
@@ -859,7 +860,7 @@ head(Genego_cc_pr$GO)
 ## Perform the enrichment/overrespresentation analysis
 ### Anlysis on protein domain (attemp to recreate the result of the original study)
 #### Across four groups
-```{r}
+```{r enrichment using enricher from clusterprofiler}
 # get data from deg results and from annotation data
 deg <- Genepd_four$APD
 annotation <- Genepd_four$PD
@@ -891,7 +892,7 @@ head(EA_PD_four)
 ```
 
 ##### Uninfected vs Aymptomatic Controller
-```{r define a function for manual computation}
+```{r define a function for manual enrich computation}
 # you can also use enricher() from the clusterProfiler above. 
 # We can also use the hypergeometric test to manually compute for significant protein domains.
 EAPDCompute <- function(apd, pd){
@@ -917,19 +918,15 @@ EAPDCompute <- function(apd, pd){
     for (Id in unique(fg_pd_id)) {
       # tocal count in background with PD term
       m <- sum(bg_pd_id == Id) 
-      
       # total count in background without PD term
       n <- length(bg_pd_id) - m 
-      
       # total count in foreground
       q <- length(fg_pd_id)
-      
       # total count in foreground with PD term
       x <- sum(fg_pd_id == Id)
-      
       # compute the hypergeometric p-value
       p_val <- phyper(x - 1, m, n, q, lower.tail = FALSE)
-      
+
       # combine the result for all probes
       EA <- rbind(EA, c(m, m + n, q, x, p_val))
     }
@@ -1025,7 +1022,7 @@ EAPDCompute <- function(apd, pd){
       Protein_tab <- unique(EA_tab[, c("Description", "Gene.id", "P.Val.adjusted")])
       Top_protein <- Protein_tab %>%
         arrange(P.Val.adjusted) %>%
-        slice_head(n = 5)
+        slice_head(n = 5) # filter for the top 5 protein families
       
       result <- list(EA_tab, Top_protein)
       names(result) <- c("EA_tab", "Top_protein")
@@ -1042,32 +1039,43 @@ head(EAPD_ui_ac$Top_protein)
 # save the result as a csv file if needed.
 # write.csv(as.data.frame(EAPD_ui_ac$EA_tab), "EAPD_Fin_ui_ac.csv", row.names = FALSE)
 
+# add a section to generate bubble graphs for the top 5 PD families.
 
 ```
 
 ##### Uninfected vs Chronic Controller
 ```{r perform the enrichment analysis}
-
+EAPD_ui_cc <- EACompute(Genepd_ui_cc$APD, Genepd_ui_cc$PD)
+head(EAPD_ui_cc$EA_tab)
+head(EAPD_ui_cc$Top_protein)
 ```
 
 ##### Uninfected vs Progressor
 ```{r perform the enrichment analysis}
-
+EAPD_ui_pr <- EACompute(Genepd_ui_pr$APD, Genepd_ui_pr$PD)
+head(EAPD_ui_pr$EA_tab)
+head(EAPD_ui_pr$Top_protein)
 ```
 
 ##### Aymptomatic Controller vs Chronic Controller
 ```{r perform the enrichment analysis}
-
+EAPD_ac_cc <- EACompute(Genepd_ac_cc$APD, Genepd_ac_cc$PD)
+head(EAPD_ac_cc$EA_tab)
+head(EAPD_ac_cc$Top_protein)
 ```
 
 ##### Aymptomatic Controller vs Progressor
 ```{r perform the enrichment analysis}
-
+EAPD_ac_pr <- EACompute(Genepd_ac_pr$APD, Genepd_ac_pr$PD)
+head(EAPD_ac_pr$EA_tab)
+head(EAPD_ac_pr$Top_protein)
 ```
 
 ##### Chronic Controller vs Progressor
 ```{r perform the enrichment analysis}
-
+EAPD_cc_pr <- EACompute(Genepd_cc_pr$APD, Genepd_cc_pr$PD)
+head(EAPD_cc_pr$EA_tab)
+head(EAPD_cc_pr$Top_protein)
 ```
 
 
@@ -1120,8 +1128,13 @@ head(EAPD_ui_ac$Top_protein)
 |               With a list of gene id and the logFC between two groups, we can perform an enrichment analysis based on org.Mm.eg.db. This block use Aymptomatic Controller and Progressor groups as an example. However, we should be cautious about two things when using this approach: (1) gene id from GEO may not have a match on org.Mm.eg.db; (2) org.Mm.eg.db contains all genes while the source article samples only lung tissues. Therefore, we may find signals of enrichment/overrepresentation not due to TB infections, but because we sample lung tissues!
 
 ```{r enrichment using clusterProfiler}
-# filter the AGO list for DEGs with ah alpha level at 0.05, and grab the list of gene id.
-gene_list <- Genego_ac_pr$AGO[which(Genego_ac_pr$AGO[, "adj.P.Val"] > 0), "Gene_id"]
+# get data from deg results and from annotation data
+deg <- Genego_four$AGO
+annotation <- Genego_four$GO
+
+
+# filter the AGO list for degs with ah alpha level at 0.05, and grab the list of gene id.
+gene_list <- Genego_four$AGO[which(Genego_four$AGO[, "adj.P.Val"] > 0), "Gene_id"]
 
 # check the gene mapping with the database
 mapped_genes <- bitr(gene_list, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org.Mm.eg.db)
@@ -1132,7 +1145,7 @@ gene_list <- setdiff(gene_list, unmapped_genes)
 
 tempt <- as.data.frame(gene_list)
 tempt <- tempt %>%
-  left_join(Genego_ac_pr$AGO, by = c("gene_list" = "Gene_id"))
+  left_join(Genego_four$AGO, by = c("gene_list" = "Gene_id"))
 
 gene_list <- tempt$logFC
 names(gene_list) <- tempt$gene_list
@@ -1152,6 +1165,7 @@ orgdb_table <- as.data.frame(orgdb_result[orgdb_result$p.adjust < 0.05])
 head(orgdb_table)
 ```
 
+
 ```{r clusterProfiler visualisation}
 # clusterProfiler has many cool ways to visualise the enrichment analysis results, but the results generally would need to be in specific Class object like enrichResult.
 # upsetplot
@@ -1164,7 +1178,7 @@ p_ema
 ```
 
 #### Manual computation for enrichment analysis
-|               At this point, we have both the AGO from the DEG analysis among the various pairs of contrast groups and the GO data from platform on GEO. Instead of using clusterProfiler, we can manually perform the enrichment/overrepresentation analysis. The theoretical section at the beginning requires computation of the background count $\textbf{m}$, the foreground count $\textbf{q}$, the DEGs of selected GO term $\textbf{x}$, and the number of probes without GO terms $\textbf{n}$. An alpha level of 0.05 is chosen. A different alpha level can be chosen based on the tolerance for Type I and II errors.
+|               At this point, we have both the $\textbf{AGO data}$ from the DEG analysis among the various pairs of contrast groups and the $\textbf{GO data}$ from platform on GEO. Instead of using clusterProfiler, we can manually perform the enrichment/overrepresentation analysis. The theoretical section at the beginning requires computation of the background count $\textbf{m}$, the foreground count $\textbf{q}$, the DEGs of selected GO term $\textbf{x}$, and the number of probes without GO terms $\textbf{n}$. An alpha level of 0.05 is chosen. A different alpha level can be chosen based on the tolerance for Type I and II errors.
 
 ```{r define an EA function to perform the computation}
 EACompute <- function(ago, go){
@@ -1173,6 +1187,7 @@ EACompute <- function(ago, go){
   GOdata <- go
   
   # check the minimal adj.P.Val.
+  # perhaps using try is better.
   if (min(AGO$adj.P.Val) < 0.05){
     # perform the EA computation.
     # compute for foreground.
@@ -1183,8 +1198,8 @@ EACompute <- function(ago, go){
     bg_probe <- rownames(AGO)
     bg_go_id <- GOdata$Probe_id[GOdata$Probe_id %in% bg_probe]
     
-    # compute for the counts for relevant terms form the theoretical section for each gene ontology.
-    EA <- data.frame() # enrichment analysis
+    # compute for the counts for relevant terms from the theoretical section for each gene ontology.
+    EA <- data.frame() # container for the results of enrichment analysis
     
     # counting for each GO term.
     for (Id in unique(fg_go_id)){
@@ -1204,8 +1219,9 @@ EACompute <- function(ago, go){
     rownames(EA) = unique(fg_go_id)
     colnames(EA) = c("m", "o(m + n)", "q", "x", "P.Val.hygeo")
     
+    # check and see if the result dataframe is empty
     if(nrow(EA) > 0 && any(!is.na(EA[, "x"]))){
-      # adjust the P.Val.hygeo for multiple testing across the entire array of probes. Finding true positive is more important to me in this analysis, but use one of the other adjusting methods as needed.
+    # adjust the P.Val.hygeo for multiple testing across the entire array of probes. Finding true positive is more important to me in this analysis, but use one of the other adjusting methods as needed.
       EA <- cbind(EA, "adj.P.Val.hygeo" = p.adjust(EA[, "P.Val.hygeo"], "BH"))
       
       # filter again for only the significant results by adj.P.Val.hygeo. We use 0.05 as the alpha level as 0.05 captures only one GO term...
@@ -1392,3 +1408,5 @@ head(EA_cc_pr$EA_tab)
 ```
 
 Voilà! Now we have the differentially expressed probes with their protein domains and gene ontology from our microarray! 
+
+# Conclusion
